@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ownerApi } from '../../services/api';
-import { Loader, AlertTriangle, CheckCircle, IndianRupee, ShieldAlert, User, Phone, School } from 'lucide-react';
+import { Loader, AlertTriangle, CheckCircle, IndianRupee, ShieldAlert, User, Phone, School, Search } from 'lucide-react';
 
 interface OrderItem {
   id: string;
@@ -24,9 +24,19 @@ export const CodPending: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   
   const [actionId, setActionId] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string>('');
+
+  const filteredOrders = orders.filter((order) => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+    return (
+      order.customerName.toLowerCase().includes(query) ||
+      order.publicOrderId.toLowerCase().includes(query)
+    );
+  });
 
   const fetchCodPending = async () => {
     try {
@@ -78,6 +88,22 @@ export const CodPending: React.FC = () => {
         <p className="text-slate-400 text-xs mt-1">Manage Cash on Delivery orders. Confirm cash collection on delivery.</p>
       </div>
 
+      {/* Search Bar */}
+      {orders.length > 0 && (
+        <div className="relative w-full max-w-md">
+          <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-500">
+            <Search size={14} />
+          </span>
+          <input
+            type="text"
+            placeholder="Search by customer name or order ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-slate-900 border border-slate-850 focus:border-brand-500 rounded-2xl text-xs font-semibold outline-none text-white placeholder:text-slate-600 shadow-lg shadow-black/10 transition-colors"
+          />
+        </div>
+      )}
+
       {successMsg && (
         <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl text-xs font-semibold flex items-center gap-2">
           <CheckCircle size={16} />
@@ -102,9 +128,14 @@ export const CodPending: React.FC = () => {
           <CheckCircle className="text-emerald-500/50" size={32} />
           <span>No pending COD deliveries! Good job.</span>
         </div>
+      ) : filteredOrders.length === 0 ? (
+        <div className="text-center py-16 bg-slate-900 border border-slate-800 rounded-3xl text-slate-500 text-xs font-semibold flex flex-col items-center justify-center gap-2">
+          <Search className="text-slate-600" size={32} />
+          <span>No dispatches matching "{searchQuery}" found.</span>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {orders.map((order) => (
+          {filteredOrders.map((order) => (
             <div 
               key={order.id} 
               className="bg-slate-900 border border-slate-800 rounded-3xl p-5 flex flex-col justify-between gap-5 hover:border-slate-700 transition-all shadow-md relative overflow-hidden"
