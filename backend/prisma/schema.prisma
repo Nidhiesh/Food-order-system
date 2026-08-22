@@ -1,0 +1,110 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model ShopOwner {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Product {
+  id              String     @id @default(uuid())
+  name            String     @unique
+  description     String?
+  defaultPrice    Float
+  defaultQuantity Int        @default(10)
+  isAvailable     Boolean    @default(true)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  menuItems       MenuItem[]
+}
+
+model MenuItem {
+  id                String      @id @default(uuid())
+  businessDate      String      // Format: YYYY-MM-DD
+  productId         String?
+  product           Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  name              String
+  description       String?
+  price             Float
+  availableQuantity Int
+  initialQuantity   Int
+  isAvailable       Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  orderItems        OrderItem[]
+
+  @@unique([businessDate, name])
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  publicOrderId   String      @unique // readable ID for students
+  businessDate    String      // Format: YYYY-MM-DD
+  customerName    String
+  customerPhone   String
+  departmentClass String?
+  totalAmount     Float
+  paymentMethod   String      // COD or ONLINE
+  paymentStatus   String      // PENDING, PAID, FAILED, REFUNDED
+  orderStatus     String      // PENDING_PAYMENT, CONFIRMED, PREPARING, READY, OUT_FOR_DELIVERY, DELIVERED, CANCELLED, PAYMENT_FAILED
+  trackingToken   String      @unique // secure token to fetch without logging in
+  cancelledAt     DateTime?
+  cancellationReason String?
+  deliveredAt     DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  items           OrderItem[]
+  payment         Payment?
+
+  @@index([businessDate])
+  @@index([customerPhone])
+  @@index([publicOrderId])
+}
+
+model OrderItem {
+  id         String    @id @default(uuid())
+  orderId    String
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItemId String?
+  menuItem   MenuItem? @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+  name       String    // snapshot at purchase time
+  unitPrice  Float     // snapshot at purchase time
+  quantity   Int
+  subtotal   Float
+}
+
+model Payment {
+  id             String   @id @default(uuid())
+  orderId        String   @unique
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  gateway        String   // e.g. "RAZORPAY"
+  gatewayOrderId String   @unique
+  gatewayPaymentId String? @unique
+  amount         Float
+  currency       String   @default("INR")
+  status         String   // PENDING, PAID, FAILED
+  signature      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model ShopState {
+  id                 String   @id @default(uuid())
+  businessDate       String   @unique // Format: YYYY-MM-DD
+  manualClosed       Boolean  @default(false)
+  openingTime        String   @default("08:00") // Format: HH:MM
+  closingTime        String   @default("11:00") // Format: HH:MM
+  cancellationCutoff String   @default("11:00") // Format: HH:MM
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
