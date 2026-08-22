@@ -1,11 +1,8 @@
 import React from 'react';
 import { Link, Outlet } from 'react-router-dom';
-import { ShoppingBag, History, Store } from 'lucide-react';
-import { useCart } from '../context/CartContext';
+import { History, Store } from 'lucide-react';
 
 export const StudentLayout: React.FC = () => {
-  const { getTotalItemsCount } = useCart();
-  const cartCount = getTotalItemsCount();
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -30,18 +27,6 @@ export const StudentLayout: React.FC = () => {
               <History size={20} />
             </Link>
 
-            <Link
-              to="/cart"
-              className="relative p-2 text-slate-500 hover:text-slate-900 rounded-xl hover:bg-slate-50 transition-colors"
-              title="Cart"
-            >
-              <ShoppingBag size={20} />
-              {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-brand-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-sm border border-white">
-                  {cartCount}
-                </span>
-              )}
-            </Link>
           </nav>
         </div>
       </header>

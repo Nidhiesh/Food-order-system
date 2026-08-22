@@ -41,7 +41,7 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser(COOKIE_SECRET));
 
 // ==========================================
-// RATE LIMITING
+// RATE LIMITING (Disabled for development/testing)
 // ==========================================
 
 // Global rate limiter
@@ -55,7 +55,7 @@ const globalLimiter = rateLimit({
     message: 'Too many requests from this IP, please try again after 15 minutes.',
   },
 });
-app.use('/api', globalLimiter);
+// app.use('/api', globalLimiter);
 
 // Strict login rate limiter (prevent owner account brute-force)
 const loginLimiter = rateLimit({
@@ -68,7 +68,7 @@ const loginLimiter = rateLimit({
     message: 'Too many login attempts. Access blocked for 15 minutes.',
   },
 });
-app.use('/api/auth/login', loginLimiter);
+// app.use('/api/auth/login', loginLimiter);
 
 // ==========================================
 // ROUTE REGISTRATION

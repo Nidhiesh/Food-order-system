@@ -76,7 +76,7 @@ export const TodayMenu: React.FC = () => {
   }
 
   return (
-    <div className="animate-slide-up">
+    <div className={`animate-slide-up ${getTotalItemsCount() > 0 ? 'pb-28' : ''}`}>
       {/* Welcome Banner */}
       <div className="relative overflow-hidden bg-gradient-to-br from-brand-900 via-brand-850 to-brand-800 rounded-3xl p-6 text-white shadow-xl shadow-brand-950/10 mb-8 border border-white/5">
         <div className="relative z-10">
@@ -202,23 +202,25 @@ export const TodayMenu: React.FC = () => {
 
       {/* Floating Bottom Cart Bar */}
       {getTotalItemsCount() > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2rem)] max-w-md bg-slate-900 text-white p-4 rounded-3xl shadow-xl flex items-center justify-between gap-4 z-40 animate-slide-up border border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-brand-600 flex items-center justify-center text-white font-bold">
-              <ShoppingBag size={18} />
+        <div className="fixed bottom-4 left-0 right-0 flex justify-center px-4 z-40">
+          <div className="w-full max-w-md bg-slate-900 text-white p-4 rounded-3xl shadow-xl flex items-center justify-between gap-4 animate-slide-up border border-slate-800">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-brand-600 flex items-center justify-center text-white font-bold">
+                <ShoppingBag size={18} />
+              </div>
+              <div>
+                <span className="block text-xs text-slate-400 font-medium">{getTotalItemsCount()} item(s)</span>
+                <span className="block text-sm font-black">₹{getCartTotal()}</span>
+              </div>
             </div>
-            <div>
-              <span className="block text-xs text-slate-400 font-medium">{getTotalItemsCount()} item(s)</span>
-              <span className="block text-sm font-black">₹{getCartTotal()}</span>
-            </div>
-          </div>
 
-          <Link
-            to="/cart"
-            className="bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm px-6 py-2.5 rounded-2xl transition-all hover:scale-[1.02] cursor-pointer"
-          >
-            View Cart
-          </Link>
+            <Link
+              to="/cart"
+              className="bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm px-6 py-2.5 rounded-2xl transition-all hover:scale-[1.02] cursor-pointer"
+            >
+              View Cart
+            </Link>
+          </div>
         </div>
       )}
     </div>
