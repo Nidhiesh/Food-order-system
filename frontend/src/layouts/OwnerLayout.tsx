@@ -11,7 +11,8 @@ import {
   AlertCircle,
   Clock,
   CheckCircle,
-  ChefHat
+  ChefHat,
+  X
 } from 'lucide-react';
 import { ownerApi } from '../services/api';
 
@@ -21,6 +22,7 @@ export const OwnerLayout: React.FC = () => {
   const location = useLocation();
   const [shopOpen, setShopOpen] = useState<boolean>(false);
   const [shopStatusText, setShopStatusText] = useState<string>('Loading...');
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
   const fetchShopStatus = async () => {
     try {
@@ -87,23 +89,69 @@ export const OwnerLayout: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row">
-      {/* Side Navigation Bar */}
-      <aside className="w-full md:w-64 bg-slate-900 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col justify-between p-4 shrink-0">
-        <div>
-          {/* Logo */}
-          <div className="flex items-center gap-3 mb-8 px-2 py-1">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-brand-500 flex items-center justify-center text-white font-black shadow-lg shadow-brand-500/20">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row relative">
+      {/* Mobile Header Bar */}
+      <header className="md:hidden h-16 bg-slate-900 border-b border-slate-800 flex items-center justify-between px-4 sticky top-0 z-40">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            className="p-1.5 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors cursor-pointer"
+            title="Toggle Sidebar"
+          >
+            <MenuIcon size={20} />
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-brand-600 to-brand-500 flex items-center justify-center text-white font-black text-xs">
               OB
             </div>
-            <div>
-              <span className="font-extrabold text-lg tracking-tight text-white block">
-                Owner Portal
-              </span>
-              <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block">
-                Campus Bites V1
-              </span>
+            <span className="font-extrabold text-sm text-white">Owner Portal</span>
+          </div>
+        </div>
+        
+        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+          shopOpen ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
+        }`}>
+          <span className={`w-1.5 h-1.5 rounded-full ${shopOpen ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`}></span>
+          {shopOpen ? 'OPEN' : 'CLOSED'}
+        </span>
+      </header>
+
+      {/* Mobile Sidebar Backdrop */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm md:hidden transition-all duration-300"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Side Navigation Bar */}
+      <aside className={`fixed md:sticky top-0 left-0 bottom-0 z-50 md:z-30 w-64 h-screen md:h-auto bg-slate-900 border-r border-slate-800 flex flex-col justify-between p-4 shrink-0 transition-transform duration-300 md:translate-x-0 ${
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+      }`}>
+        <div>
+          {/* Logo / Header */}
+          <div className="flex items-center justify-between mb-8 px-2 py-1">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-600 to-brand-500 flex items-center justify-center text-white font-black shadow-lg shadow-brand-500/20">
+                OB
+              </div>
+              <div>
+                <span className="font-extrabold text-lg tracking-tight text-white block">
+                  Owner Portal
+                </span>
+                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold block">
+                  Campus Bites V1
+                </span>
+              </div>
             </div>
+
+            {/* Mobile close button */}
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="md:hidden p-1 text-slate-500 hover:text-white cursor-pointer"
+            >
+              <X size={18} />
+            </button>
           </div>
 
           {/* Quick status bar */}
@@ -138,6 +186,7 @@ export const OwnerLayout: React.FC = () => {
                 <Link
                   key={item.path}
                   to={item.path}
+                  onClick={() => setIsSidebarOpen(false)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
                     isActive 
                       ? 'bg-brand-600 text-white shadow-md shadow-brand-500/10' 
@@ -155,7 +204,10 @@ export const OwnerLayout: React.FC = () => {
         {/* Logout Section */}
         <div className="pt-4 border-t border-slate-800 mt-6 md:mt-0">
           <button
-            onClick={logout}
+            onClick={() => {
+              setIsSidebarOpen(false);
+              logout();
+            }}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-rose-500/10 hover:text-rose-400 transition-all"
           >
             <LogOut size={18} />
