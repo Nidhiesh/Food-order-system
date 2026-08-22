@@ -29,7 +29,14 @@ export const TodayMenu: React.FC = () => {
       // 1. Verify shop status first
       const statusRes = await studentApi.getShopStatus();
       if (!statusRes?.status?.isOpen) {
-        navigate('/shop-closed', { state: { message: statusRes.status.message } });
+        navigate('/shop-closed', { 
+          state: { 
+            message: statusRes.status.message,
+            openingTime: statusRes.openingTime,
+            closingTime: statusRes.closingTime,
+            cancellationCutoff: statusRes.cancellationCutoff,
+          } 
+        });
         return;
       }
 

@@ -24,6 +24,18 @@ export const OrderDetails: React.FC = () => {
   const [cancelling, setCancelling] = useState<boolean>(false);
   const [showCancelModal, setShowCancelModal] = useState<boolean>(false);
   const [cancelReason, setCancelReason] = useState<string>('');
+  const [cancellationCutoff, setCancellationCutoff] = useState<string>('11:00');
+
+  const fetchShopStatus = async () => {
+    try {
+      const res = await studentApi.getShopStatus();
+      if (res.success && res.cancellationCutoff) {
+        setCancellationCutoff(res.cancellationCutoff);
+      }
+    } catch (err) {
+      console.error('Failed to fetch shop status in order details', err);
+    }
+  };
 
   const fetchOrderDetails = async () => {
     if (!orderId || !token) {
@@ -49,6 +61,7 @@ export const OrderDetails: React.FC = () => {
 
   useEffect(() => {
     fetchOrderDetails();
+    fetchShopStatus();
   }, [orderId, token]);
 
   const handleCancelOrder = async () => {
@@ -110,7 +123,27 @@ export const OrderDetails: React.FC = () => {
     const todayStr = formatter.format(new Date());
     const isToday = order.businessDate === todayStr;
     
-    return isCorrectStatus && isToday;
+    if (!isCorrectStatus || !isToday) return false;
+
+    // Enforce cancellation cutoff time using Kolkata timezone
+    const [cutoffHour, cutoffMin] = cancellationCutoff.split(':').map(Number);
+    const utcDate = new Date();
+    const options: Intl.DateTimeFormatOptions = {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    };
+    const formatterTime = new Intl.DateTimeFormat('en-US', options);
+    const parts = formatterTime.formatToParts(utcDate);
+    const getPart = (type: string) => parts.find(p => p.type === type)?.value || '0';
+    const hour = parseInt(getPart('hour'));
+    const minute = parseInt(getPart('minute'));
+
+    const currentMinutes = hour * 60 + minute;
+    const cutoffMinutes = cutoffHour * 60 + cutoffMin;
+
+    return currentMinutes < cutoffMinutes;
   };
 
   // Stepper statuses
