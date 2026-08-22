@@ -114,7 +114,7 @@ export const TodayMenu: React.FC = () => {
           {menu.map((item) => {
             const cartItem = cartItems.find((i) => i.id === item.id);
             const inCartCount = cartItem?.quantity || 0;
-            const isSoldOut = item.availableQuantity <= 0;
+            const isSoldOut = !item.isAvailable;
 
             return (
               <div
@@ -138,17 +138,9 @@ export const TodayMenu: React.FC = () => {
 
                   {/* Stock tag */}
                   <div className="flex items-center gap-1.5 mt-auto">
-                    {isSoldOut ? (
+                    {isSoldOut && (
                       <span className="text-[10px] font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
                         Sold Out
-                      </span>
-                    ) : (
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                        item.availableQuantity <= 5 
-                          ? 'text-amber-600 bg-amber-50' 
-                          : 'text-slate-400 bg-slate-100'
-                      }`}>
-                        {item.availableQuantity} left
                       </span>
                     )}
                   </div>

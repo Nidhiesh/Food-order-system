@@ -35,10 +35,6 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const existing = prev.find((i) => i.id === item.id);
       if (existing) {
         const nextQty = existing.quantity + 1;
-        // Cap at available stock
-        if (nextQty > item.availableQuantity) {
-          return prev;
-        }
         return prev.map((i) => (i.id === item.id ? { ...i, quantity: nextQty } : i));
       }
       return [...prev, { ...item, quantity: 1 }];
@@ -57,8 +53,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCartItems((prev) =>
       prev.map((item) => {
         if (item.id === id) {
-          const targetQty = Math.min(quantity, item.availableQuantity);
-          return { ...item, quantity: targetQty };
+          return { ...item, quantity };
         }
         return item;
       })

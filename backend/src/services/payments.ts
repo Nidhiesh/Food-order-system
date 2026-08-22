@@ -164,7 +164,8 @@ export async function verifyRazorpayPayment(
           },
         });
 
-        // Restore MenuItem stock quantities
+        // Restore MenuItem stock quantities (Disabled for unlimited stock count)
+        /*
         const orderItems = await tx.orderItem.findMany({
           where: { orderId: payment.orderId },
         });
@@ -180,6 +181,7 @@ export async function verifyRazorpayPayment(
             });
           }
         }
+        */
 
         throw new AppError('Payment signature verification failed. Tampering detected.', 400);
       }

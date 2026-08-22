@@ -85,7 +85,7 @@ export const MenuManagement: React.FC = () => {
     setCatName('');
     setCatDesc('');
     setCatPrice(0);
-    setCatQty(10);
+    setCatQty(9999);
     setCatAvail(true);
     setShowCatalogModal(true);
   };
@@ -95,7 +95,7 @@ export const MenuManagement: React.FC = () => {
     setCatName(item.name);
     setCatDesc(item.description || '');
     setCatPrice(item.defaultPrice);
-    setCatQty(item.defaultQuantity);
+    setCatQty(9999);
     setCatAvail(item.isAvailable);
     setShowCatalogModal(true);
   };
@@ -164,8 +164,8 @@ export const MenuManagement: React.FC = () => {
       setUpdatingMenuId(item.id);
       await ownerApi.updateTodayMenuItem(item.id, {
         price: Number(editPrice),
-        availableQuantity: Number(editQty),
-        initialQuantity: Math.max(Number(editQty), item.initialQuantity), // increase if we add more
+        availableQuantity: 9999,
+        initialQuantity: 9999,
       });
       setEditingMenuItemId(null);
       loadData();
@@ -243,7 +243,6 @@ export const MenuManagement: React.FC = () => {
                     <tr className="bg-slate-950/40 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
                       <th className="p-4">Item Name</th>
                       <th className="p-4">Daily Price</th>
-                      <th className="p-4">Stock Left</th>
                       <th className="p-4">Availability</th>
                       <th className="p-4 text-right">Actions</th>
                     </tr>
@@ -275,26 +274,7 @@ export const MenuManagement: React.FC = () => {
                             )}
                           </td>
 
-                          <td className="p-4">
-                            {isEditing ? (
-                              <input
-                                type="number"
-                                value={editQty}
-                                onChange={(e) => setEditQty(Math.max(0, Number(e.target.value)))}
-                                className="w-20 px-2.5 py-1.5 bg-slate-950 border border-slate-800 focus:border-brand-500 rounded-xl text-xs font-semibold outline-none text-white"
-                              />
-                            ) : (
-                              <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
-                                item.availableQuantity === 0 
-                                  ? 'bg-rose-500/10 text-rose-400' 
-                                  : item.availableQuantity <= 5 
-                                  ? 'bg-amber-500/10 text-amber-400 animate-pulse-slow' 
-                                  : 'bg-slate-950/60 text-slate-400'
-                              }`}>
-                                {item.availableQuantity} / {item.initialQuantity}
-                              </span>
-                            )}
-                          </td>
+
 
                           <td className="p-4">
                             <button
@@ -335,7 +315,7 @@ export const MenuManagement: React.FC = () => {
                                 className="inline-flex items-center gap-1 bg-slate-850 hover:bg-slate-800 text-slate-300 font-bold text-[10px] px-3 py-1.5 rounded-xl transition-all cursor-pointer border border-slate-800"
                               >
                                 <Edit2 size={10} />
-                                Edit Stock/Price
+                                Edit Price
                               </button>
                             )}
                           </td>
@@ -361,7 +341,6 @@ export const MenuManagement: React.FC = () => {
                     <tr className="bg-slate-950/40 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
                       <th className="p-4">Product Name</th>
                       <th className="p-4">Default Price</th>
-                      <th className="p-4">Default Quantity</th>
                       <th className="p-4">Catalog Status</th>
                       <th className="p-4 text-right">Actions</th>
                     </tr>
@@ -376,7 +355,6 @@ export const MenuManagement: React.FC = () => {
                           </span>
                         </td>
                         <td className="p-4 font-bold text-white">₹{item.defaultPrice}</td>
-                        <td className="p-4 text-xs font-semibold text-slate-400">{item.defaultQuantity} units</td>
                         <td className="p-4">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
                             item.isAvailable ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-500'
@@ -454,30 +432,16 @@ export const MenuManagement: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              {/* Default Price */}
-              <div>
-                <label className="text-xs font-bold text-slate-400 mb-1.5 block">Default Price (₹)</label>
-                <input
-                  type="number"
-                  value={catPrice}
-                  onChange={(e) => setCatPrice(Math.max(1, Number(e.target.value)))}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-brand-500 rounded-xl text-xs font-semibold outline-none text-white"
-                  required
-                />
-              </div>
-
-              {/* Default Quantity */}
-              <div>
-                <label className="text-xs font-bold text-slate-400 mb-1.5 block">Default Quantity</label>
-                <input
-                  type="number"
-                  value={catQty}
-                  onChange={(e) => setCatQty(Math.max(0, Number(e.target.value)))}
-                  className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-brand-500 rounded-xl text-xs font-semibold outline-none text-white"
-                  required
-                />
-              </div>
+            {/* Default Price */}
+            <div>
+              <label className="text-xs font-bold text-slate-400 mb-1.5 block">Default Price (₹)</label>
+              <input
+                type="number"
+                value={catPrice}
+                onChange={(e) => setCatPrice(Math.max(1, Number(e.target.value)))}
+                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-brand-500 rounded-xl text-xs font-semibold outline-none text-white"
+                required
+              />
             </div>
 
             {/* Availability status */}

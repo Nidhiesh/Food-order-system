@@ -55,9 +55,6 @@ export const Cart: React.FC = () => {
               <span className="text-xs font-semibold text-slate-400 block mt-0.5">
                 ₹{item.price} each
               </span>
-              <span className="text-[10px] font-bold text-slate-400 bg-slate-50 border border-slate-100 px-2 py-0.5 rounded-md inline-block mt-2">
-                Stock: {item.availableQuantity}
-              </span>
             </div>
 
             {/* Qty Actions */}

@@ -48,6 +48,8 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
           throw new AppError(`Food item '${menuItem.name}' is sold out/unavailable`, 400);
         }
 
+        // Stock checks and decrement disabled for unlimited stock count
+        /*
         if (menuItem.availableQuantity < item.quantity) {
           throw new AppError(`Insufficient stock for '${menuItem.name}'. Only ${menuItem.availableQuantity} left.`, 400);
         }
@@ -66,6 +68,7 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
         if (updatedMenuItem.availableQuantity < 0) {
           throw new AppError(`Stock for '${menuItem.name}' was depleted by a concurrent order`, 400);
         }
+        */
 
         const subtotal = menuItem.price * item.quantity;
         totalAmount += subtotal;
@@ -232,7 +235,8 @@ export async function cancelOrder(req: Request, res: Response, next: NextFunctio
         },
       });
 
-      // Restore MenuItem stock quantities
+      // Restore MenuItem stock quantities (Disabled for unlimited stock count)
+      /*
       for (const item of order.items) {
         if (item.menuItemId) {
           await tx.menuItem.update({
@@ -245,6 +249,7 @@ export async function cancelOrder(req: Request, res: Response, next: NextFunctio
           });
         }
       }
+      */
     });
 
     res.json({
