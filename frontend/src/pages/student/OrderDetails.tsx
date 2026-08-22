@@ -147,7 +147,7 @@ export const OrderDetails: React.FC = () => {
   };
 
   // Stepper statuses
-  const steps = ['CONFIRMED', 'PREPARING', 'READY', 'DELIVERED'];
+  const steps = ['CONFIRMED', 'DELIVERED'];
   const getStepIndex = (status: string) => {
     if (status === 'PENDING_PAYMENT') return -1;
     if (status === 'CANCELLED' || status === 'PAYMENT_FAILED') return -2;

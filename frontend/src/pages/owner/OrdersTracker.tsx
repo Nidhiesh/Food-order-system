@@ -123,21 +123,14 @@ export const OrdersTracker: React.FC = () => {
       case 'DELIVERED': return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
       case 'CANCELLED':
       case 'PAYMENT_FAILED': return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
-      case 'READY': return 'bg-amber-500/10 text-amber-400 border-amber-500/20';
-      case 'PREPARING': return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
-      case 'OUT_FOR_DELIVERY': return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+      case 'CONFIRMED': return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
       default: return 'bg-slate-800 text-slate-400 border-slate-700';
     }
   };
 
   const allStatuses = [
-    'PENDING_PAYMENT',
     'CONFIRMED',
-    'PREPARING',
-    'READY',
-    'OUT_FOR_DELIVERY',
-    'DELIVERED',
-    'CANCELLED'
+    'DELIVERED'
   ];
 
   return (
@@ -164,7 +157,7 @@ export const OrdersTracker: React.FC = () => {
 
         {/* Filter buttons */}
         <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto no-scrollbar py-1">
-          {['ALL', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED'].map(filter => (
+          {['ALL', 'CONFIRMED', 'DELIVERED', 'CANCELLED'].map(filter => (
             <button
               key={filter}
               onClick={() => setStatusFilter(filter)}
