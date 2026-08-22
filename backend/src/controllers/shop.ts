@@ -14,6 +14,9 @@ export async function getPublicStatus(req: Request, res: Response, next: NextFun
     res.json({
       success: true,
       businessDate: state.businessDate,
+      openingTime: state.openingTime,
+      closingTime: state.closingTime,
+      cancellationCutoff: state.cancellationCutoff,
       status,
     });
   } catch (error) {

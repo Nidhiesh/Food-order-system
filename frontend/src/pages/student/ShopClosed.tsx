@@ -1,11 +1,47 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocation, Link } from 'react-router-dom';
 import { Store, Clock, RefreshCw } from 'lucide-react';
+import { studentApi } from '../../services/api';
 
 export const ShopClosed: React.FC = () => {
   const location = useLocation();
-  const state = location.state as { message?: string } | null;
-  const message = state?.message || 'Ordering is currently unavailable.';
+  const state = location.state as { 
+    message?: string;
+    openingTime?: string;
+    closingTime?: string;
+    cancellationCutoff?: string;
+  } | null;
+
+  const [message, setMessage] = useState<string>(state?.message || 'Ordering is currently unavailable.');
+  const [openingTime, setOpeningTime] = useState<string>(state?.openingTime || '08:00');
+  const [closingTime, setClosingTime] = useState<string>(state?.closingTime || '11:00');
+  const [cancellationCutoff, setCancellationCutoff] = useState<string>(state?.cancellationCutoff || '11:00');
+
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await studentApi.getShopStatus();
+        if (res.success) {
+          if (res.status.message) setMessage(res.status.message);
+          if (res.openingTime) setOpeningTime(res.openingTime);
+          if (res.closingTime) setClosingTime(res.closingTime);
+          if (res.cancellationCutoff) setCancellationCutoff(res.cancellationCutoff);
+        }
+      } catch (err) {
+        console.error('Failed to fetch shop status in closed page', err);
+      }
+    };
+    fetchStatus();
+  }, []);
+
+  const formatTime12h = (timeStr: string) => {
+    if (!timeStr) return '';
+    const [hourStr, minStr] = timeStr.split(':');
+    const hour = parseInt(hourStr, 10);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minStr} ${ampm}`;
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] text-center px-4 animate-fade-in">
@@ -35,12 +71,16 @@ export const ShopClosed: React.FC = () => {
         
         <div className="flex items-center justify-between pb-3 border-b border-slate-50">
           <span className="text-sm font-medium text-slate-600">Daily Operations</span>
-          <span className="text-sm font-bold text-slate-900 bg-slate-50 px-2.5 py-1 rounded-xl">8:00 AM – 11:00 AM</span>
+          <span className="text-sm font-bold text-slate-900 bg-slate-50 px-2.5 py-1 rounded-xl">
+            {formatTime12h(openingTime)} – {formatTime12h(closingTime)}
+          </span>
         </div>
         
         <div className="flex items-center justify-between pt-3">
           <span className="text-sm font-medium text-slate-600">Cancellation Cutoff</span>
-          <span className="text-sm font-bold text-rose-500 bg-rose-50 px-2.5 py-1 rounded-xl">Before 11:00 AM</span>
+          <span className="text-sm font-bold text-rose-500 bg-rose-50 px-2.5 py-1 rounded-xl">
+            Before {formatTime12h(cancellationCutoff)}
+          </span>
         </div>
       </div>
 
