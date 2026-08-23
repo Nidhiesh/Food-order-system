@@ -208,9 +208,6 @@ export const OrderDetails: React.FC = () => {
             <Clock size={24} className="shrink-0 animate-pulse-slow" />
             <div className="text-left">
               <span className="font-extrabold text-sm block">Payment Pending</span>
-              <span className="text-xs text-amber-600 block leading-snug">
-                Please complete the payment callback via checkout.
-              </span>
             </div>
           </div>
         ) : (

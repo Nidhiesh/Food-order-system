@@ -27,107 +27,219 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
 
     // Use transaction to create order and deduct stock atomically
     const result = await prisma.$transaction(async (tx) => {
-      let totalAmount = 0;
-      const orderItemsData = [];
-
-      for (const item of parsed.items) {
-        // Fetch and lock MenuItem for update to prevent concurrent race conditions
-        const menuItem = await tx.menuItem.findUnique({
-          where: { id: item.menuItemId },
-        });
-
-        if (!menuItem) {
-          throw new AppError(`Food item not found on today's menu`, 404);
-        }
-
-        if (menuItem.businessDate !== businessDate) {
-          throw new AppError(`Food item '${menuItem.name}' is not on today's menu`, 400);
-        }
-
-        if (!menuItem.isAvailable) {
-          throw new AppError(`Food item '${menuItem.name}' is sold out/unavailable`, 400);
-        }
-
-        // Stock checks and decrement disabled for unlimited stock count
-        /*
-        if (menuItem.availableQuantity < item.quantity) {
-          throw new AppError(`Insufficient stock for '${menuItem.name}'. Only ${menuItem.availableQuantity} left.`, 400);
-        }
-
-        // Deduct stock atomically
-        const updatedMenuItem = await tx.menuItem.update({
-          where: { id: menuItem.id },
-          data: {
-            availableQuantity: {
-              decrement: item.quantity,
-            },
-          },
-        });
-
-        // Fail-safe check
-        if (updatedMenuItem.availableQuantity < 0) {
-          throw new AppError(`Stock for '${menuItem.name}' was depleted by a concurrent order`, 400);
-        }
-        */
-
-        const subtotal = menuItem.price * item.quantity;
-        totalAmount += subtotal;
-
-        orderItemsData.push({
-          menuItemId: menuItem.id,
-          name: menuItem.name,
-          unitPrice: menuItem.price,
-          quantity: item.quantity,
-          subtotal,
-        });
-      }
-
-      // Generate public Order ID and tracking token
-      const randomDigits = Math.floor(100000 + Math.random() * 900000);
-      const publicOrderId = `ORD-${businessDate.replace(/-/g, '')}-${randomDigits}`;
-      const trackingToken = crypto.randomBytes(32).toString('hex');
-
-      // Determine initial statuses
-      let orderStatus = 'CONFIRMED';
-      let paymentStatus = 'PENDING';
-
-      if (parsed.paymentMethod === 'ONLINE') {
-        orderStatus = 'PENDING_PAYMENT';
-        paymentStatus = 'PENDING';
-      }
-
-      // Create main Order
-      const newOrder = await tx.order.create({
-        data: {
-          publicOrderId,
+      // 1. Check if there is an existing active order for this business date with the same customer name and phone
+      const existingOrder = await tx.order.findFirst({
+        where: {
           businessDate,
           customerName: parsed.customerName,
           customerPhone: parsed.customerPhone,
-          departmentClass: parsed.departmentClass,
-          totalAmount,
-          paymentMethod: parsed.paymentMethod,
-          paymentStatus,
-          orderStatus,
-          trackingToken,
-          items: {
-            create: orderItemsData,
+          orderStatus: {
+            in: ['PENDING_PAYMENT', 'CONFIRMED', 'PREPARING'],
           },
         },
         include: {
           items: true,
+          payment: true,
         },
       });
 
-      // Handle Online Payment initialization
-      let rzpOrder = null;
-      if (parsed.paymentMethod === 'ONLINE') {
-        rzpOrder = await createRazorpayOrder(newOrder.id, totalAmount, tx);
-      }
+      if (existingOrder) {
+        let additionalAmount = 0;
+        const itemsToUpdate = [];
+        const itemsToCreate = [];
 
-      return {
-        order: newOrder,
-        razorpayOrder: rzpOrder,
-      };
+        for (const item of parsed.items) {
+          const menuItem = await tx.menuItem.findUnique({
+            where: { id: item.menuItemId },
+          });
+
+          if (!menuItem) {
+            throw new AppError(`Food item not found on today's menu`, 404);
+          }
+
+          if (menuItem.businessDate !== businessDate) {
+            throw new AppError(`Food item '${menuItem.name}' is not on today's menu`, 400);
+          }
+
+          if (!menuItem.isAvailable) {
+            throw new AppError(`Food item '${menuItem.name}' is sold out/unavailable`, 400);
+          }
+
+          const subtotal = menuItem.price * item.quantity;
+          additionalAmount += subtotal;
+
+          const existingItem = existingOrder.items.find(
+            (i) => i.menuItemId === menuItem.id
+          );
+
+          if (existingItem) {
+            itemsToUpdate.push({
+              id: existingItem.id,
+              quantity: existingItem.quantity + item.quantity,
+              subtotal: existingItem.subtotal + subtotal,
+            });
+          } else {
+            itemsToCreate.push({
+              menuItemId: menuItem.id,
+              name: menuItem.name,
+              unitPrice: menuItem.price,
+              quantity: item.quantity,
+              subtotal,
+            });
+          }
+        }
+
+        // Apply updates and creations for items
+        for (const item of itemsToUpdate) {
+          await tx.orderItem.update({
+            where: { id: item.id },
+            data: {
+              quantity: item.quantity,
+              subtotal: item.subtotal,
+            },
+          });
+        }
+
+        if (itemsToCreate.length > 0) {
+          await tx.orderItem.createMany({
+            data: itemsToCreate.map((item) => ({
+              orderId: existingOrder.id,
+              menuItemId: item.menuItemId,
+              name: item.name,
+              unitPrice: item.unitPrice,
+              quantity: item.quantity,
+              subtotal: item.subtotal,
+            })),
+          });
+        }
+
+        const newTotalAmount = existingOrder.totalAmount + additionalAmount;
+
+        let orderStatus = existingOrder.orderStatus;
+        let paymentStatus = existingOrder.paymentStatus;
+        let paymentMethod = existingOrder.paymentMethod;
+        let rzpOrder = null;
+
+        if (parsed.paymentMethod === 'ONLINE') {
+          if (existingOrder.payment) {
+            await tx.payment.delete({
+              where: { orderId: existingOrder.id },
+            });
+          }
+          rzpOrder = await createRazorpayOrder(existingOrder.id, additionalAmount, tx);
+
+          orderStatus = 'PENDING_PAYMENT';
+          paymentStatus = 'PENDING';
+          paymentMethod = 'ONLINE';
+        } else {
+          paymentMethod = 'COD';
+          paymentStatus = 'PENDING';
+          if (existingOrder.payment && existingOrder.payment.status === 'PENDING') {
+            await tx.payment.delete({
+              where: { orderId: existingOrder.id },
+            });
+          }
+          orderStatus = 'CONFIRMED';
+        }
+
+        const updatedOrder = await tx.order.update({
+          where: { id: existingOrder.id },
+          data: {
+            totalAmount: newTotalAmount,
+            paymentMethod,
+            paymentStatus,
+            orderStatus,
+          },
+          include: {
+            items: true,
+          },
+        });
+
+        return {
+          order: updatedOrder,
+          razorpayOrder: rzpOrder,
+        };
+      } else {
+        let totalAmount = 0;
+        const orderItemsData = [];
+
+        for (const item of parsed.items) {
+          // Fetch and lock MenuItem for update to prevent concurrent race conditions
+          const menuItem = await tx.menuItem.findUnique({
+            where: { id: item.menuItemId },
+          });
+
+          if (!menuItem) {
+            throw new AppError(`Food item not found on today's menu`, 404);
+          }
+
+          if (menuItem.businessDate !== businessDate) {
+            throw new AppError(`Food item '${menuItem.name}' is not on today's menu`, 400);
+          }
+
+          if (!menuItem.isAvailable) {
+            throw new AppError(`Food item '${menuItem.name}' is sold out/unavailable`, 400);
+          }
+
+          const subtotal = menuItem.price * item.quantity;
+          totalAmount += subtotal;
+
+          orderItemsData.push({
+            menuItemId: menuItem.id,
+            name: menuItem.name,
+            unitPrice: menuItem.price,
+            quantity: item.quantity,
+            subtotal,
+          });
+        }
+
+        // Generate public Order ID and tracking token
+        const randomDigits = Math.floor(100000 + Math.random() * 900000);
+        const publicOrderId = `ORD-${businessDate.replace(/-/g, '')}-${randomDigits}`;
+        const trackingToken = crypto.randomBytes(32).toString('hex');
+
+        // Determine initial statuses
+        let orderStatus = 'CONFIRMED';
+        let paymentStatus = 'PENDING';
+
+        if (parsed.paymentMethod === 'ONLINE') {
+          orderStatus = 'PENDING_PAYMENT';
+          paymentStatus = 'PENDING';
+        }
+
+        // Create main Order
+        const newOrder = await tx.order.create({
+          data: {
+            publicOrderId,
+            businessDate,
+            customerName: parsed.customerName,
+            customerPhone: parsed.customerPhone,
+            departmentClass: parsed.departmentClass,
+            totalAmount,
+            paymentMethod: parsed.paymentMethod,
+            paymentStatus,
+            orderStatus,
+            trackingToken,
+            items: {
+              create: orderItemsData,
+            },
+          },
+          include: {
+            items: true,
+          },
+        });
+
+        // Handle Online Payment initialization
+        let rzpOrder = null;
+        if (parsed.paymentMethod === 'ONLINE') {
+          rzpOrder = await createRazorpayOrder(newOrder.id, totalAmount, tx);
+        }
+
+        return {
+          order: newOrder,
+          razorpayOrder: rzpOrder,
+        };
+      }
     });
 
     res.status(201).json({
@@ -297,14 +409,30 @@ export async function getTodayOrdersOwner(req: Request, res: Response, next: Nex
     const businessDate = getKolkataBusinessDate();
     const orders = await prisma.order.findMany({
       where: { businessDate },
-      include: { items: true },
+      include: { items: true, payment: true },
       orderBy: { createdAt: 'desc' },
     });
+
+    const ordersWithIndicators = await Promise.all(
+      orders.map(async (order) => {
+        const otherOrdersCount = await prisma.order.count({
+          where: {
+            businessDate,
+            customerPhone: order.customerPhone,
+            id: { not: order.id },
+          },
+        });
+        return {
+          ...order,
+          hasOtherOrdersToday: otherOrdersCount > 0,
+        };
+      })
+    );
 
     res.json({
       success: true,
       businessDate,
-      orders,
+      orders: ordersWithIndicators,
     });
   } catch (error) {
     next(error);
@@ -322,13 +450,29 @@ export async function getCodPendingOrdersOwner(req: Request, res: Response, next
           in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'],
         },
       },
-      include: { items: true },
+      include: { items: true, payment: true },
       orderBy: { createdAt: 'asc' },
     });
 
+    const ordersWithIndicators = await Promise.all(
+      orders.map(async (order) => {
+        const otherOrdersCount = await prisma.order.count({
+          where: {
+            businessDate,
+            customerPhone: order.customerPhone,
+            id: { not: order.id },
+          },
+        });
+        return {
+          ...order,
+          hasOtherOrdersToday: otherOrdersCount > 0,
+        };
+      })
+    );
+
     res.json({
       success: true,
-      orders,
+      orders: ordersWithIndicators,
     });
   } catch (error) {
     next(error);
@@ -342,6 +486,7 @@ export async function markCodDeliveredOwner(req: Request, res: Response, next: N
     const result = await prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
         where: { id },
+        include: { payment: true },
       });
 
       if (!order) {
@@ -358,6 +503,15 @@ export async function markCodDeliveredOwner(req: Request, res: Response, next: N
 
       if (order.orderStatus === 'CANCELLED') {
         throw new AppError('Cannot deliver a cancelled order', 400);
+      }
+
+      if (order.payment) {
+        await tx.payment.update({
+          where: { id: order.payment.id },
+          data: {
+            amount: order.totalAmount,
+          },
+        });
       }
 
       const updated = await tx.order.update({
@@ -489,9 +643,10 @@ export async function getTodaySalesSummary(req: Request, res: Response, next: Ne
   try {
     const businessDate = getKolkataBusinessDate();
 
-    // Fetch all orders for today
+    // Fetch all orders for today with payments
     const orders = await prisma.order.findMany({
       where: { businessDate },
+      include: { payment: true },
     });
 
     const confirmedCount = orders.filter(o => !['CANCELLED', 'PAYMENT_FAILED', 'PENDING_PAYMENT'].includes(o.orderStatus)).length;
@@ -501,8 +656,21 @@ export async function getTodaySalesSummary(req: Request, res: Response, next: Ne
     const paidOrders = orders.filter(o => o.paymentStatus === 'PAID' && o.orderStatus !== 'CANCELLED');
     const totalSales = paidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
 
-    const codSales = paidOrders.filter(o => o.paymentMethod === 'COD').reduce((sum, o) => sum + o.totalAmount, 0);
-    const onlineSales = paidOrders.filter(o => o.paymentMethod === 'ONLINE').reduce((sum, o) => sum + o.totalAmount, 0);
+    let codSales = 0;
+    let onlineSales = 0;
+
+    for (const o of paidOrders) {
+      if (o.paymentMethod === 'ONLINE') {
+        onlineSales += o.totalAmount;
+      } else {
+        if (o.payment && o.payment.status === 'PAID') {
+          onlineSales += o.payment.amount;
+          codSales += Math.max(0, o.totalAmount - o.payment.amount);
+        } else {
+          codSales += o.totalAmount;
+        }
+      }
+    }
 
     res.json({
       success: true,

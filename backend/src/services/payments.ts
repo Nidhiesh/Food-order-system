@@ -194,13 +194,14 @@ export async function verifyRazorpayPayment(
         status: 'PAID',
         gatewayPaymentId: razorpayPaymentId,
         signature: razorpaySignature || 'MOCK_SIGNATURE',
+        amount: payment.order.totalAmount, // update payment amount to match the new total order amount
       },
     });
 
     const updatedOrder = await tx.order.update({
       where: { id: payment.orderId },
       data: {
-        orderStatus: 'CONFIRMED',
+        orderStatus: payment.order.orderStatus === 'PENDING_PAYMENT' ? 'CONFIRMED' : payment.order.orderStatus,
         paymentStatus: 'PAID',
       },
     });
