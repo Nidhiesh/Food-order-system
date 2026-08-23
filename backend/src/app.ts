@@ -10,6 +10,7 @@ import menuRoutes from './routes/menu';
 import orderRoutes from './routes/orders';
 import paymentRoutes from './routes/payments';
 import shopRoutes from './routes/shop';
+import sseRoutes from './routes/sse';
 
 const app = express();
 
@@ -79,6 +80,7 @@ app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/shop', shopRoutes);
+app.use('/api/sse', sseRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

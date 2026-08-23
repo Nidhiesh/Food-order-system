@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ownerApi } from '../../services/api';
+import { useSSE } from '../../hooks/useSSE';
+import { pageCache } from '../../services/pageCache';
 import { Loader, AlertTriangle, CheckCircle, IndianRupee, ShieldAlert, User, Phone, School, Search } from 'lucide-react';
 
 interface OrderItem {
@@ -26,8 +28,10 @@ interface Order {
 }
 
 export const CodPending: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [orders, setOrders] = useState<Order[]>(
+    () => pageCache.get<Order[]>('cod:pending') ?? []
+  );
+  const [loading, setLoading] = useState<boolean>(!pageCache.has('cod:pending'));
   const [error, setError] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
   
@@ -43,33 +47,41 @@ export const CodPending: React.FC = () => {
     );
   });
 
-  const fetchCodPending = async (showLoading = false) => {
+  const fetchCodPending = useCallback(async (showLoading = false) => {
     try {
-      if (showLoading) {
+      if (showLoading && !pageCache.has('cod:pending')) {
         setLoading(true);
         setError('');
       }
       const res = await ownerApi.getCodPendingOrders();
       if (res.success) {
-        setOrders(res.orders || []);
+        const data = res.orders || [];
+        setOrders(data);
+        pageCache.set('cod:pending', data);
       }
     } catch (err: any) {
       console.error(err);
-      if (showLoading) {
+      if (showLoading && !pageCache.has('cod:pending')) {
         setError(err.response?.data?.message || 'Failed to load COD pending queue.');
       }
     } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
+      if (showLoading) setLoading(false);
     }
-  };
+  }, []);
+
+  // SSE: update COD list instantly on relevant events
+  useSSE({
+    order_updated:        () => fetchCodPending(false),
+    order_cancelled:      () => fetchCodPending(false),
+    orders_cancelled_all: () => fetchCodPending(false),
+  });
 
   useEffect(() => {
     fetchCodPending(true);
-    const interval = setInterval(() => fetchCodPending(false), 5000); // refresh every 5s
+    // 30s fallback polling in case SSE drops
+    const interval = setInterval(() => fetchCodPending(false), 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchCodPending]);
 
   const handleMarkDelivered = async (orderId: string, publicId: string) => {
     if (actionId) return;

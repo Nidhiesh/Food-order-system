@@ -6,6 +6,7 @@ import { checkoutSchema } from '../validators';
 import { ensureActiveBusinessDay } from '../services/shopState';
 import { determineShopStatus, getKolkataBusinessDate, getKolkataTime } from '../utils/timezone';
 import { createRazorpayOrder } from '../services/payments';
+import { sseManager } from '../services/sseManager';
 
 const prisma = new PrismaClient();
 
@@ -106,6 +107,12 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
         order: newOrder,
         razorpayOrder: rzpOrder,
       };
+    });
+
+    // Broadcast to all SSE clients so order lists refresh immediately
+    sseManager.broadcast('order_created', {
+      publicOrderId: result.order.publicOrderId,
+      paymentMethod: result.order.paymentMethod,
     });
 
     res.status(201).json({
@@ -229,6 +236,9 @@ export async function cancelOrder(req: Request, res: Response, next: NextFunctio
       }
       */
     });
+
+    // Broadcast cancellation so order lists and detail pages refresh immediately
+    sseManager.broadcast('order_cancelled', { publicOrderId });
 
     res.json({
       success: true,
@@ -644,6 +654,9 @@ export async function markCodDeliveredOwner(req: Request, res: Response, next: N
       return lastUpdatedOrder || targetOrder;
     });
 
+    // Broadcast so all connected clients (student order details, owner tracker) update immediately
+    sseManager.broadcast('order_updated', { orderId: id, orderStatus: 'DELIVERED' });
+
     res.json({
       success: true,
       message: 'COD order marked as delivered.',
@@ -728,6 +741,9 @@ export async function updateOrderStatusOwner(req: Request, res: Response, next: 
 
       return lastUpdatedOrder || targetOrder;
     });
+
+    // Broadcast so all connected clients update immediately
+    sseManager.broadcast('order_updated', { orderId: id, orderStatus: status });
 
     res.json({
       success: true,
@@ -889,6 +905,9 @@ export async function cancelAllOrdersOwner(req: Request, res: Response, next: Ne
 
       return activeOrders.length;
     });
+
+    // Broadcast so all connected student/owner tabs refresh immediately
+    sseManager.broadcast('orders_cancelled_all', { count: cancelledCount, businessDate });
 
     res.json({
       success: true,

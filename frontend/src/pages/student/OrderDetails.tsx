@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useLocation, useNavigate, Link } from 'react-router-dom';
 import { studentApi } from '../../services/api';
+import { useSSE } from '../../hooks/useSSE';
+import { pageCache } from '../../services/pageCache';
 import { Loader, AlertTriangle, ArrowLeft, RefreshCw, Clock, Ban, CheckCircle, Package } from 'lucide-react';
 
 export const OrderDetails: React.FC = () => {
@@ -9,7 +11,7 @@ export const OrderDetails: React.FC = () => {
   const navigate = useNavigate();
 
   // Retrieve token from route state or URL params
-  const [token, setToken] = useState<string>(() => {
+  const [token] = useState<string>(() => {
     const stateToken = (location.state as any)?.token;
     if (stateToken) return stateToken;
     
@@ -17,8 +19,10 @@ export const OrderDetails: React.FC = () => {
     return searchParams.get('token') || '';
   });
 
-  const [order, setOrder] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [order, setOrder] = useState<any>(
+    () => pageCache.get<any>(`order:${orderId}`) ?? null
+  );
+  const [loading, setLoading] = useState<boolean>(!pageCache.has(`order:${orderId}`));
   const [error, setError] = useState<string>('');
   
   const [cancelling, setCancelling] = useState<boolean>(false);
@@ -26,53 +30,61 @@ export const OrderDetails: React.FC = () => {
   const [cancelReason, setCancelReason] = useState<string>('');
   const [cancellationCutoff, setCancellationCutoff] = useState<string>('11:00');
 
-  const fetchShopStatus = async () => {
-    try {
-      const res = await studentApi.getShopStatus();
-      if (res.success && res.cancellationCutoff) {
-        setCancellationCutoff(res.cancellationCutoff);
-      }
-    } catch (err) {
-      console.error('Failed to fetch shop status in order details', err);
-    }
-  };
-
-  const fetchOrderDetails = async (showLoading = false) => {
+  const fetchAll = useCallback(async (showLoading = false) => {
     if (!orderId || !token) {
       setError('Missing order ID or access token.');
       setLoading(false);
       return;
     }
 
+    const cacheKey = `order:${orderId}`;
+
     try {
-      if (showLoading) {
+      if (showLoading && !pageCache.has(cacheKey)) {
         setLoading(true);
         setError('');
       }
-      const res = await studentApi.getOrderDetails(orderId, token);
-      if (res.success) {
-        setOrder(res.order);
+
+      // Fetch order details and shop status in parallel
+      const [orderRes, statusRes] = await Promise.all([
+        studentApi.getOrderDetails(orderId, token),
+        studentApi.getShopStatus().catch(() => null), // non-fatal
+      ]);
+
+      if (orderRes.success) {
+        setOrder(orderRes.order);
+        pageCache.set(cacheKey, orderRes.order);
+      }
+
+      if (statusRes?.success && statusRes.cancellationCutoff) {
+        setCancellationCutoff(statusRes.cancellationCutoff);
       }
     } catch (err: any) {
       console.error(err);
-      if (showLoading) {
+      if (showLoading && !pageCache.has(cacheKey)) {
         setError(err.response?.data?.message || 'Failed to load order details.');
       }
     } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
+      if (showLoading) setLoading(false);
     }
-  };
+  }, [orderId, token]);
+
+  // SSE: refresh the moment anything changes about orders or shop
+  useSSE({
+    order_updated:        () => fetchAll(false),
+    order_cancelled:      () => fetchAll(false),
+    orders_cancelled_all: () => fetchAll(false),
+    shop_updated:         () => fetchAll(false),
+  });
 
   useEffect(() => {
-    fetchOrderDetails(true);
-    fetchShopStatus();
+    fetchAll(true);
+    // 30s fallback polling
     const interval = setInterval(() => {
-      fetchOrderDetails(false);
-    }, 5000);
+      fetchAll(false);
+    }, 30_000);
     return () => clearInterval(interval);
-  }, [orderId, token]);
+  }, [fetchAll]);
 
   const handleCancelOrder = async () => {
     try {
@@ -80,7 +92,7 @@ export const OrderDetails: React.FC = () => {
       const res = await studentApi.cancelOrder(orderId!, token, cancelReason);
       if (res.success) {
         setShowCancelModal(false);
-        fetchOrderDetails();
+        fetchAll(false);
       }
     } catch (err: any) {
       alert(err.response?.data?.message || 'Failed to cancel order.');
@@ -184,7 +196,7 @@ export const OrderDetails: React.FC = () => {
         </div>
 
         <button
-          onClick={() => fetchOrderDetails(true)}
+          onClick={() => fetchAll(true)}
           className="w-10 h-10 rounded-2xl border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all cursor-pointer"
           title="Refresh status"
         >

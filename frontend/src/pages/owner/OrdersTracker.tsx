@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ownerApi } from '../../services/api';
+import { useSSE } from '../../hooks/useSSE';
+import { pageCache } from '../../services/pageCache';
 import { 
   Loader, 
   Search, 
@@ -47,9 +49,13 @@ interface Order {
 }
 
 export const OrdersTracker: React.FC = () => {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [orders, setOrders] = useState<Order[]>(
+    () => pageCache.get<Order[]>('orders:today') ?? []
+  );
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>(
+    () => pageCache.get<Order[]>('orders:today') ?? []
+  );
+  const [loading, setLoading] = useState<boolean>(!pageCache.has('orders:today'));
   const [error, setError] = useState<string>('');
 
   // Filtering / Search state
@@ -88,33 +94,43 @@ export const OrdersTracker: React.FC = () => {
     }
   };
 
-  const fetchOrders = async (showLoading = false) => {
+  const fetchOrders = useCallback(async (showLoading = false) => {
     try {
-      if (showLoading) {
+      if (showLoading && !pageCache.has('orders:today')) {
         setLoading(true);
         setError('');
       }
       const res = await ownerApi.getTodayOrders();
       if (res.success) {
-        setOrders(res.orders || []);
+        const data = res.orders || [];
+        setOrders(data);
+        pageCache.set('orders:today', data);
       }
     } catch (err: any) {
       console.error(err);
-      if (showLoading) {
+      if (showLoading && !pageCache.has('orders:today')) {
         setError(err.response?.data?.message || 'Failed to fetch today\'s orders queue.');
       }
     } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
+      if (showLoading) setLoading(false);
     }
-  };
+  }, []);
+
+  // SSE: refresh immediately when any order or shop event arrives
+  useSSE({
+    order_created:        () => fetchOrders(false),
+    order_updated:        () => fetchOrders(false),
+    order_cancelled:      () => fetchOrders(false),
+    orders_cancelled_all: () => fetchOrders(false),
+    shop_updated:         () => fetchOrders(false),
+  });
 
   useEffect(() => {
     fetchOrders(true);
-    const interval = setInterval(() => fetchOrders(false), 5000); // refresh every 5s
+    // 30s fallback polling in case SSE connection drops
+    const interval = setInterval(() => fetchOrders(false), 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchOrders]);
 
   // Filter logic
   useEffect(() => {

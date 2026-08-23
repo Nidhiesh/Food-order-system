@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ownerApi } from '../../services/api';
+import { useSSE } from '../../hooks/useSSE';
+import { pageCache } from '../../services/pageCache';
 import { Loader, IndianRupee, CreditCard, Wallet, Calendar, TrendingUp, BarChart2 } from 'lucide-react';
 
 interface SalesStats {
@@ -27,14 +29,18 @@ interface PaidOrder {
 }
 
 export const SalesSummary: React.FC = () => {
-  const [stats, setStats] = useState<SalesStats | null>(null);
-  const [paidOrders, setPaidOrders] = useState<PaidOrder[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [stats, setStats] = useState<SalesStats | null>(
+    () => pageCache.get<SalesStats>('sales:stats') ?? null
+  );
+  const [paidOrders, setPaidOrders] = useState<PaidOrder[]>(
+    () => pageCache.get<PaidOrder[]>('sales:orders') ?? []
+  );
+  const [loading, setLoading] = useState<boolean>(!pageCache.has('sales:stats'));
   const [error, setError] = useState<string>('');
 
-  const loadData = async (showLoading = false) => {
+  const loadData = useCallback(async (showLoading = false) => {
     try {
-      if (showLoading) {
+      if (showLoading && !pageCache.has('sales:stats')) {
         setLoading(true);
         setError('');
       }
@@ -46,34 +52,40 @@ export const SalesSummary: React.FC = () => {
 
       if (statsRes.success) {
         setStats(statsRes.summary);
+        pageCache.set('sales:stats', statsRes.summary);
       }
 
       if (ordersRes.success) {
-        // Filter orders that are actually paid and not cancelled
         const paid = (ordersRes.orders || []).filter(
           (o: any) => o.paymentStatus === 'PAID' && o.orderStatus !== 'CANCELLED'
         );
         setPaidOrders(paid);
+        pageCache.set('sales:orders', paid);
       }
     } catch (err: any) {
       console.error(err);
-      if (showLoading) {
+      if (showLoading && !pageCache.has('sales:stats')) {
         setError(err.response?.data?.message || 'Failed to load sales information.');
       }
     } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
+      if (showLoading) setLoading(false);
     }
-  };
+  }, []);
+
+  // SSE: refresh on any order change
+  useSSE({
+    order_updated:        () => loadData(false),
+    order_cancelled:      () => loadData(false),
+    orders_cancelled_all: () => loadData(false),
+    order_created:        () => loadData(false),
+  });
 
   useEffect(() => {
     loadData(true);
-    const interval = setInterval(() => {
-      loadData(false);
-    }, 5000);
+    // 30s fallback polling
+    const interval = setInterval(() => loadData(false), 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadData]);
 
   if (loading && !stats) {
     return (

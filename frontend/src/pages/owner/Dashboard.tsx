@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ownerApi } from '../../services/api';
+import { useSSE } from '../../hooks/useSSE';
+import { pageCache } from '../../services/pageCache';
 import { 
   ClipboardList, 
   IndianRupee, 
@@ -32,15 +34,23 @@ interface SalesSummary {
 }
 
 export const Dashboard: React.FC = () => {
-  const [prepSummary, setPrepSummary] = useState<PrepSummaryItem[]>([]);
-  const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(null);
-  const [codPendingCount, setCodPendingCount] = useState<number>(0);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [prepSummary, setPrepSummary] = useState<PrepSummaryItem[]>(
+    () => pageCache.get<PrepSummaryItem[]>('dashboard:prep') ?? []
+  );
+  const [salesSummary, setSalesSummary] = useState<SalesSummary | null>(
+    () => pageCache.get<SalesSummary>('dashboard:sales') ?? null
+  );
+  const [codPendingCount, setCodPendingCount] = useState<number>(
+    () => pageCache.get<number>('dashboard:cod') ?? 0
+  );
+  // Only show spinner on genuine first load (cache empty)
+  const [loading, setLoading] = useState<boolean>(!pageCache.has('dashboard:sales'));
   const [error, setError] = useState<string>('');
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      setLoading(true);
+      // Only show full spinner on first load
+      if (!pageCache.has('dashboard:sales')) setLoading(true);
       setError('');
 
       const [prepRes, salesRes, codRes] = await Promise.all([
@@ -49,27 +59,45 @@ export const Dashboard: React.FC = () => {
         ownerApi.getCodPendingOrders(),
       ]);
 
-      if (prepRes.success) setPrepSummary(prepRes.summary || []);
-      if (salesRes.success) {
-        setSalesSummary({
-          ...salesRes.summary,
-          businessDate: salesRes.businessDate,
-        });
+      if (prepRes.success) {
+        const prep = prepRes.summary || [];
+        setPrepSummary(prep);
+        pageCache.set('dashboard:prep', prep);
       }
-      if (codRes.success) setCodPendingCount(codRes.orders?.length || 0);
+      if (salesRes.success) {
+        const sales = { ...salesRes.summary, businessDate: salesRes.businessDate };
+        setSalesSummary(sales);
+        pageCache.set('dashboard:sales', sales);
+      }
+      if (codRes.success) {
+        const count = codRes.orders?.length || 0;
+        setCodPendingCount(count);
+        pageCache.set('dashboard:cod', count);
+      }
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to load dashboard metrics.');
+      if (!pageCache.has('dashboard:sales')) {
+        setError(err.response?.data?.message || 'Failed to load dashboard metrics.');
+      }
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // SSE: refresh dashboard numbers instantly on any relevant event
+  useSSE({
+    order_created:        () => loadData(),
+    order_updated:        () => loadData(),
+    order_cancelled:      () => loadData(),
+    orders_cancelled_all: () => loadData(),
+  });
 
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 5000); // refresh every 5s
+    // 30s fallback polling in case SSE connection drops
+    const interval = setInterval(loadData, 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loadData]);
 
   const downloadPDFReport = () => {
     if (!salesSummary) return;

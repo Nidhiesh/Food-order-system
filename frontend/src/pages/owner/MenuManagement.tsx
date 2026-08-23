@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { ownerApi } from '../../services/api';
+import { useSSE } from '../../hooks/useSSE';
+import { pageCache } from '../../services/pageCache';
 import { 
   Plus, 
   Edit2, 
@@ -36,9 +38,16 @@ interface MenuItem {
 
 export const MenuManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'catalog' | 'today'>('today');
-  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
-  const [todayMenu, setTodayMenu] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [catalog, setCatalog] = useState<CatalogItem[]>(
+    () => pageCache.get<CatalogItem[]>('menu:catalog') ?? []
+  );
+  const [todayMenu, setTodayMenu] = useState<MenuItem[]>(
+    () => pageCache.get<MenuItem[]>('menu:today') ?? []
+  );
+  // Only show spinner when the active tab has no cached data yet
+  const [loading, setLoading] = useState<boolean>(
+    activeTab === 'today' ? !pageCache.has('menu:today') : !pageCache.has('menu:catalog')
+  );
   const [error, setError] = useState<string>('');
 
   // Modal / Form state for Catalog
@@ -57,38 +66,47 @@ export const MenuManagement: React.FC = () => {
   const [editQty, setEditQty] = useState<number>(0);
   const [updatingMenuId, setUpdatingMenuId] = useState<string | null>(null);
 
-  const loadData = async (showLoading = false) => {
+  const loadData = useCallback(async (showLoading = false) => {
+    const cacheKey = activeTab === 'catalog' ? 'menu:catalog' : 'menu:today';
     try {
-      if (showLoading) {
+      if (showLoading && !pageCache.has(cacheKey)) {
         setLoading(true);
         setError('');
       }
       if (activeTab === 'catalog') {
         const res = await ownerApi.getCatalog();
-        if (res.success) setCatalog(res.catalog || []);
+        if (res.success) {
+          setCatalog(res.catalog || []);
+          pageCache.set('menu:catalog', res.catalog || []);
+        }
       } else {
         const res = await ownerApi.getTodayMenuOwner();
-        if (res.success) setTodayMenu(res.menu || []);
+        if (res.success) {
+          setTodayMenu(res.menu || []);
+          pageCache.set('menu:today', res.menu || []);
+        }
       }
     } catch (err: any) {
       console.error(err);
-      if (showLoading) {
+      if (showLoading && !pageCache.has(cacheKey)) {
         setError(err.response?.data?.message || 'Failed to load menu data.');
       }
     } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
+      if (showLoading) setLoading(false);
     }
-  };
+  }, [activeTab]);
+
+  // SSE: refresh when menu changes
+  useSSE({
+    menu_updated: () => loadData(false),
+  });
 
   useEffect(() => {
     loadData(true);
-    const interval = setInterval(() => {
-      loadData(false);
-    }, 5000);
+    // 30s fallback polling
+    const interval = setInterval(() => loadData(false), 30_000);
     return () => clearInterval(interval);
-  }, [activeTab]);
+  }, [loadData]);
 
   const openAddCatalogModal = () => {
     setEditingCatalogItem(null);

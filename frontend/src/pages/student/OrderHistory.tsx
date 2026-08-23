@@ -1,6 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { studentApi } from '../../services/api';
+import { useSSE } from '../../hooks/useSSE';
+import { pageCache } from '../../services/pageCache';
 import { History, Loader, Calendar, ArrowLeft, ArrowRight, ClipboardList } from 'lucide-react';
 
 interface OrderSummary {
@@ -17,11 +19,13 @@ interface OrderSummary {
 
 export const OrderHistory: React.FC = () => {
   const navigate = useNavigate();
-  const [orders, setOrders] = useState<OrderSummary[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [orders, setOrders] = useState<OrderSummary[]>(
+    () => pageCache.get<OrderSummary[]>('student:history') ?? []
+  );
+  const [loading, setLoading] = useState<boolean>(!pageCache.has('student:history'));
   const [error, setError] = useState<string>('');
 
-  const fetchHistory = async (showLoading = false) => {
+  const fetchHistory = useCallback(async (showLoading = false) => {
     const existing = localStorage.getItem('college_food_order_tokens');
     const tokens = existing ? JSON.parse(existing) : [];
 
@@ -32,37 +36,44 @@ export const OrderHistory: React.FC = () => {
     }
 
     try {
-      if (showLoading) {
+      if (showLoading && !pageCache.has('student:history')) {
         setLoading(true);
         setError('');
       }
       const res = await studentApi.getOrderHistory(tokens);
       if (res.success) {
-        // Exclude delivered orders from history
         const activeOrders = (res.orders || []).filter(
           (o: OrderSummary) => o.orderStatus !== 'DELIVERED'
         );
         setOrders(activeOrders);
+        pageCache.set('student:history', activeOrders);
       }
     } catch (err: any) {
       console.error(err);
-      if (showLoading) {
+      if (showLoading && !pageCache.has('student:history')) {
         setError(err.response?.data?.message || 'Failed to retrieve order history.');
       }
     } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
+      if (showLoading) setLoading(false);
     }
-  };
+  }, []);
+
+  // SSE: refresh instantly when any order changes
+  useSSE({
+    order_updated:       () => fetchHistory(false),
+    order_cancelled:     () => fetchHistory(false),
+    orders_cancelled_all:() => fetchHistory(false),
+    order_created:       () => fetchHistory(false),
+  });
 
   useEffect(() => {
     fetchHistory(true);
+    // 30s fallback polling in case SSE drops
     const interval = setInterval(() => {
       fetchHistory(false);
-    }, 5000);
+    }, 30_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchHistory]);
 
   if (loading) {
     return (

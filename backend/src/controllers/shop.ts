@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { determineShopStatus } from '../utils/timezone';
 import { ensureActiveBusinessDay } from '../services/shopState';
 import { shopStateSchema } from '../validators';
+import { sseManager } from '../services/sseManager';
 
 const prisma = new PrismaClient();
 
@@ -48,6 +49,8 @@ export async function closeShop(req: Request, res: Response, next: NextFunction)
       data: { manualClosed: true },
     });
 
+    sseManager.broadcast('shop_updated', { isOpen: false });
+
     res.json({
       success: true,
       message: 'Shop manually closed.',
@@ -66,6 +69,8 @@ export async function openShop(req: Request, res: Response, next: NextFunction) 
       where: { id: state.id },
       data: { manualClosed: false },
     });
+
+    sseManager.broadcast('shop_updated', { isOpen: true });
 
     res.json({
       success: true,
@@ -86,6 +91,8 @@ export async function updateConfig(req: Request, res: Response, next: NextFuncti
       where: { id: state.id },
       data: parsed,
     });
+
+    sseManager.broadcast('shop_updated', { configUpdated: true });
 
     res.json({
       success: true,

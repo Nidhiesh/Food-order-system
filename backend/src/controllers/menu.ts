@@ -4,6 +4,7 @@ import { AppError } from '../middleware/error';
 import { ensureActiveBusinessDay } from '../services/shopState';
 import { productSchema, menuItemUpdateSchema } from '../validators';
 import { getKolkataBusinessDate } from '../utils/timezone';
+import { sseManager } from '../services/sseManager';
 
 const prisma = new PrismaClient();
 
@@ -88,6 +89,8 @@ export async function createCatalogItem(req: Request, res: Response, next: NextF
         },
       });
     }
+
+    sseManager.broadcast('menu_updated', { action: 'item_added', name: product.name });
 
     res.status(201).json({
       success: true,
@@ -237,6 +240,8 @@ export async function updateTodayMenuItem(req: Request, res: Response, next: Nex
       where: { id },
       data: parsed,
     });
+
+    sseManager.broadcast('menu_updated', { action: 'item_updated', menuItemId: id });
 
     res.json({
       success: true,

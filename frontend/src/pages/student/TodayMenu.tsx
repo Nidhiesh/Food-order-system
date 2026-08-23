@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { studentApi } from '../../services/api';
 import { useCart } from '../../context/CartContext';
+import { useSSE } from '../../hooks/useSSE';
+import { pageCache } from '../../services/pageCache';
 import { Plus, Minus, ShoppingBag, Loader, AlertTriangle, ChefHat } from 'lucide-react';
 
 interface MenuItem {
@@ -17,19 +19,25 @@ export const TodayMenu: React.FC = () => {
   const navigate = useNavigate();
   const { cartItems, addToCart, updateQuantity, getCartTotal, getTotalItemsCount } = useCart();
   
-  const [menu, setMenu] = useState<MenuItem[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [menu, setMenu] = useState<MenuItem[]>(
+    () => pageCache.get<MenuItem[]>('student:menu') ?? []
+  );
+  const [loading, setLoading] = useState<boolean>(!pageCache.has('student:menu'));
   const [error, setError] = useState<string>('');
 
-  const fetchMenuData = async (showLoading = false) => {
+  const fetchMenuData = useCallback(async (showLoading = false) => {
     try {
-      if (showLoading) {
+      if (showLoading && !pageCache.has('student:menu')) {
         setLoading(true);
         setError('');
       }
       
-      // 1. Verify shop status first
-      const statusRes = await studentApi.getShopStatus();
+      // Fetch shop status and menu in parallel to cut initial load time
+      const [statusRes, menuRes] = await Promise.all([
+        studentApi.getShopStatus(),
+        studentApi.getTodayMenu(),
+      ]);
+
       if (!statusRes?.status?.isOpen) {
         navigate('/shop-closed', { 
           state: { 
@@ -42,30 +50,36 @@ export const TodayMenu: React.FC = () => {
         return;
       }
 
-      // 2. Fetch active menu
-      const menuRes = await studentApi.getTodayMenu();
       if (menuRes?.success) {
-        setMenu(menuRes.menu || []);
+        const items = menuRes.menu || [];
+        setMenu(items);
+        pageCache.set('student:menu', items);
       }
     } catch (err: any) {
       console.error(err);
-      if (showLoading) {
+      if (showLoading && !pageCache.has('student:menu')) {
         setError(err.response?.data?.message || 'Failed to connect to campus food server.');
       }
     } finally {
-      if (showLoading) {
-        setLoading(false);
-      }
+      if (showLoading) setLoading(false);
     }
-  };
+  }, [navigate]);
+
+  // Subscribe to SSE for instant updates
+  useSSE({
+    menu_updated: () => fetchMenuData(false),
+    shop_updated: () => fetchMenuData(false),
+    order_created: () => fetchMenuData(false),
+  });
 
   useEffect(() => {
     fetchMenuData(true);
+    // 30s fallback polling in case SSE is not available
     const interval = setInterval(() => {
       fetchMenuData(false);
-    }, 5000);
+    }, 30_000);
     return () => clearInterval(interval);
-  }, [navigate]);
+  }, [fetchMenuData]);
 
   if (loading) {
     return (
