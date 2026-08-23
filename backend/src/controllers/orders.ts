@@ -798,26 +798,35 @@ export async function getTodaySalesSummary(req: Request, res: Response, next: Ne
     for (const o of paidOrders) {
       if (o.paymentMethod === 'ONLINE') {
         onlineSales += o.totalAmount;
-      } else {
-        if (o.payment && o.payment.status === 'PAID') {
-          onlineSales += o.payment.amount;
-          codSales += Math.max(0, o.totalAmount - o.payment.amount);
-        } else {
-          codSales += o.totalAmount;
-        }
+      } else if (o.paymentMethod === 'COD') {
+        codSales += o.totalAmount;
       }
     }
+
+    const grossAmount = orders.filter(o => o.orderStatus !== 'CANCELLED').reduce((sum, o) => sum + o.totalAmount, 0);
+    const failedOrders = orders.filter(o => o.orderStatus === 'PAYMENT_FAILED' || o.paymentStatus === 'FAILED');
+    const totalLoss = failedOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+
+    const pendingCodOrders = orders.filter(o => 
+      o.paymentMethod === 'COD' && 
+      ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'].includes(o.orderStatus) &&
+      o.paymentStatus !== 'PAID'
+    );
+    const outstandingCod = pendingCodOrders.reduce((sum, o) => sum + o.totalAmount, 0);
 
     res.json({
       success: true,
       businessDate,
       summary: {
-        totalOrders: orders.length,
+        totalOrders: orders.length - cancelledCount,
         confirmedOrders: confirmedCount,
         cancelledOrders: cancelledCount,
         totalSales,
         codSales,
         onlineSales,
+        grossAmount,
+        totalLoss,
+        outstandingCod,
       },
     });
   } catch (error) {
