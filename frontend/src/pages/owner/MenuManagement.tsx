@@ -57,10 +57,12 @@ export const MenuManagement: React.FC = () => {
   const [editQty, setEditQty] = useState<number>(0);
   const [updatingMenuId, setUpdatingMenuId] = useState<string | null>(null);
 
-  const loadData = async () => {
+  const loadData = async (showLoading = false) => {
     try {
-      setLoading(true);
-      setError('');
+      if (showLoading) {
+        setLoading(true);
+        setError('');
+      }
       if (activeTab === 'catalog') {
         const res = await ownerApi.getCatalog();
         if (res.success) setCatalog(res.catalog || []);
@@ -70,14 +72,22 @@ export const MenuManagement: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to load menu data.');
+      if (showLoading) {
+        setError(err.response?.data?.message || 'Failed to load menu data.');
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+    const interval = setInterval(() => {
+      loadData(false);
+    }, 5000);
+    return () => clearInterval(interval);
   }, [activeTab]);
 
   const openAddCatalogModal = () => {
@@ -141,15 +151,16 @@ export const MenuManagement: React.FC = () => {
   };
 
   const toggleTodayItemAvailability = async (item: MenuItem) => {
+    // 1. Instantly flip the state locally (Optimistic Update)
+    setTodayMenu(prev => prev.map(i => i.id === item.id ? { ...i, isAvailable: !i.isAvailable } : i));
+
     try {
-      setUpdatingMenuId(item.id);
+      // 2. Perform API call in background
       await ownerApi.updateTodayMenuItem(item.id, { isAvailable: !item.isAvailable });
-      // update state locally
-      setTodayMenu(prev => prev.map(i => i.id === item.id ? { ...i, isAvailable: !i.isAvailable } : i));
     } catch (err: any) {
+      // 3. Revert on failure
+      setTodayMenu(prev => prev.map(i => i.id === item.id ? { ...i, isAvailable: item.isAvailable } : i));
       alert('Failed to update item availability.');
-    } finally {
-      setUpdatingMenuId(null);
     }
   };
 

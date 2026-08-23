@@ -149,6 +149,11 @@ export const ownerApi = {
     return res.data;
   },
 
+  cancelAllOrders: async (reason: string) => {
+    const res = await api.post('/orders/owner/cancel-all', { reason });
+    return res.data;
+  },
+
   getPreparationSummary: async () => {
     const res = await api.get('/orders/owner/summary');
     return res.data;

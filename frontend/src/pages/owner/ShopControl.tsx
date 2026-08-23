@@ -4,10 +4,23 @@ import { useOutletContext } from 'react-router-dom';
 import { Loader, Settings, Clock, HelpCircle, Store, ToggleLeft, ToggleRight, CheckCircle, ShieldAlert } from 'lucide-react';
 
 export const ShopControl: React.FC = () => {
-  const { fetchShopStatus } = useOutletContext<{ fetchShopStatus: () => Promise<void> }>();
+  const { 
+    shopOpen, 
+    setShopOpen, 
+    setShopStatusText, 
+    shopState, 
+    setShopState, 
+    fetchShopStatus 
+  } = useOutletContext<{ 
+    shopOpen: boolean;
+    setShopOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    setShopStatusText: React.Dispatch<React.SetStateAction<string>>;
+    shopState: any;
+    setShopState: React.Dispatch<React.SetStateAction<any>>;
+    fetchShopStatus: () => Promise<void>;
+  }>();
   
-  const [shopState, setShopState] = useState<any>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(!shopState);
   const [error, setError] = useState<string>('');
   
   const [openTime, setOpenTime] = useState<string>('08:00');
@@ -17,43 +30,65 @@ export const ShopControl: React.FC = () => {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [success, setSuccess] = useState<string>('');
 
-  const loadData = async () => {
-    try {
-      setLoading(true);
-      setError('');
-      const res = await ownerApi.getShopStatusOwner();
-      if (res.success) {
-        setShopState(res.shopState);
-        setOpenTime(res.shopState.openingTime);
-        setCloseTime(res.shopState.closingTime);
-        setCutoffTime(res.shopState.cancellationCutoff);
-      }
-    } catch (err: any) {
-      console.error(err);
-      setError(err.response?.data?.message || 'Failed to load shop configuration.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadData();
+    if (!shopState) {
+      fetchShopStatus();
+    }
   }, []);
 
+  useEffect(() => {
+    if (shopState) {
+      setOpenTime(shopState.openingTime || '08:00');
+      setCloseTime(shopState.closingTime || '11:00');
+      setCutoffTime(shopState.cancellationCutoff || '11:00');
+      setLoading(false);
+    }
+  }, [shopState]);
+
   const handleToggleManual = async () => {
+    if (!shopState) return;
+
+    const prevManualClosed = shopState.manualClosed;
+    const nextManualClosed = !prevManualClosed;
+    
+    // 1. Optimistic local state update
+    setShopState((prev: any) => prev ? { ...prev, manualClosed: nextManualClosed } : null);
+    
+    // 2. Optimistic shopOpen (sidebar status) update
+    let isCurrentlyOpen = false;
+    if (!nextManualClosed) {
+      const now = new Date();
+      // Adjust to IST
+      const kolkataTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+      const hour = kolkataTime.getHours();
+      const minute = kolkataTime.getMinutes();
+      const currentMinutes = hour * 60 + minute;
+
+      const [startHour, startMin] = openTime.split(':').map(Number);
+      const [endHour, endMin] = closeTime.split(':').map(Number);
+      const startMinutes = startHour * 60 + startMin;
+      const endMinutes = endHour * 60 + endMin;
+
+      isCurrentlyOpen = currentMinutes >= startMinutes && currentMinutes < endMinutes;
+    }
+    
+    setShopOpen(isCurrentlyOpen);
+    setShopStatusText(nextManualClosed ? 'The shop is currently not accepting orders.' : 'Shop Open');
+
     try {
-      setLoading(true);
-      if (shopState.manualClosed) {
+      if (prevManualClosed) {
         await ownerApi.openShop();
       } else {
         await ownerApi.closeShop();
       }
-      // Notify parent layout to refresh header status
-      await fetchShopStatus();
-      await loadData();
+      // Sync from backend in the background
+      fetchShopStatus();
     } catch (err) {
+      // Rollback on error
+      setShopState((prev: any) => prev ? { ...prev, manualClosed: prevManualClosed } : null);
+      setShopOpen(!prevManualClosed);
+      setShopStatusText(prevManualClosed ? 'The shop is currently not accepting orders.' : 'Shop Open');
       alert('Failed to toggle manual shop override');
-      setLoading(false);
     }
   };
 

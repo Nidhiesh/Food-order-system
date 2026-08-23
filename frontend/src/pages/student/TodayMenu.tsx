@@ -21,10 +21,12 @@ export const TodayMenu: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
 
-  const initPage = async () => {
+  const fetchMenuData = async (showLoading = false) => {
     try {
-      setLoading(true);
-      setError('');
+      if (showLoading) {
+        setLoading(true);
+        setError('');
+      }
       
       // 1. Verify shop status first
       const statusRes = await studentApi.getShopStatus();
@@ -47,14 +49,22 @@ export const TodayMenu: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to connect to campus food server.');
+      if (showLoading) {
+        setError(err.response?.data?.message || 'Failed to connect to campus food server.');
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    initPage();
+    fetchMenuData(true);
+    const interval = setInterval(() => {
+      fetchMenuData(false);
+    }, 5000);
+    return () => clearInterval(interval);
   }, [navigate]);
 
   if (loading) {
@@ -73,7 +83,7 @@ export const TodayMenu: React.FC = () => {
         <h2 className="text-lg font-bold text-slate-900 mb-2">Something Went Wrong</h2>
         <p className="text-slate-500 text-sm max-w-xs mb-6 leading-relaxed">{error}</p>
         <button
-          onClick={initPage}
+          onClick={() => fetchMenuData(true)}
           className="bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm px-6 py-2.5 rounded-2xl shadow-md transition-all cursor-pointer"
         >
           Try Again

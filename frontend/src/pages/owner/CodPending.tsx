@@ -18,6 +18,11 @@ interface Order {
   orderStatus: string;
   createdAt: string;
   items: OrderItem[];
+  payment?: {
+    status: string;
+    amount: number;
+  } | null;
+  hasOtherOrdersToday?: boolean;
 }
 
 export const CodPending: React.FC = () => {
@@ -56,7 +61,7 @@ export const CodPending: React.FC = () => {
 
   useEffect(() => {
     fetchCodPending();
-    const interval = setInterval(fetchCodPending, 20000); // refresh every 20s
+    const interval = setInterval(fetchCodPending, 5000); // refresh every 5s
     return () => clearInterval(interval);
   }, []);
 
@@ -155,29 +160,37 @@ export const CodPending: React.FC = () => {
                 </div>
 
                 {/* Customer info */}
-                <div className="flex flex-col gap-1.5 text-xs text-slate-300 mb-4">
-                  <div className="flex items-center gap-2">
-                    <User size={12} className="text-slate-500" />
-                    <span className="font-bold text-slate-200">{order.customerName}</span>
+                <div className="flex flex-col gap-2.5 text-base text-slate-300 mb-5">
+                  <div className="flex items-center gap-3">
+                    <User size={18} className="text-brand-400" />
+                    <span className="font-black text-white text-lg">{order.customerName}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Phone size={12} className="text-slate-500" />
-                    <span className="font-semibold text-slate-400">{order.customerPhone}</span>
+                  <div className="flex items-center gap-3">
+                    <Phone size={18} className="text-slate-400" />
+                    <span className="font-extrabold text-slate-200">{order.customerPhone}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <School size={12} className="text-slate-500" />
-                    <span className="font-medium text-slate-400">{order.departmentClass || 'No class details'}</span>
+                  <div className="flex items-center gap-3">
+                    <School size={18} className="text-slate-400" />
+                    <span className="font-bold text-slate-400">{order.departmentClass || 'No class details'}</span>
                   </div>
                 </div>
 
                 {/* Items ordered */}
-                <div className="bg-slate-950/40 p-3 rounded-2xl border border-slate-850/60 mb-2">
-                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">Items</span>
-                  <div className="flex flex-col gap-1.5 text-xs">
-                    {order.items.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center text-slate-300">
-                        <span className="font-bold text-slate-200">
-                          {item.name} <span className="text-slate-500 text-[10px] font-semibold">× {item.quantity}</span>
+                <div className="bg-slate-950/60 p-4 rounded-3xl border border-slate-800 mb-3">
+                  <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-2">Items</span>
+                  <div className="flex flex-col gap-1.5">
+                    {Object.entries(
+                      order.items.reduce((acc, item) => {
+                        acc[item.name] = (acc[item.name] || 0) + item.quantity;
+                        return acc;
+                      }, {} as Record<string, number>)
+                    ).map(([name, quantity], idx) => (
+                      <div key={idx} className="flex justify-between items-center py-2.5 border-b border-slate-800/40 last:border-0">
+                        <span className="font-black text-white text-base tracking-tight animate-pulse-slow">
+                          {name}
+                        </span>
+                        <span className="inline-flex items-center justify-center w-10 h-10 rounded-xl text-lg font-black bg-brand-600 text-white shadow-md shadow-brand-600/30 shrink-0">
+                          {quantity}x
                         </span>
                       </div>
                     ))}
@@ -191,7 +204,9 @@ export const CodPending: React.FC = () => {
                   <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider block">Cash to Collect</span>
                   <span className="font-black text-lg text-emerald-400 flex items-center gap-0.5">
                     <IndianRupee size={16} />
-                    {order.totalAmount}
+                    {order.payment && order.payment.status === 'PAID'
+                      ? Math.max(0, order.totalAmount - order.payment.amount)
+                      : order.totalAmount}
                   </span>
                 </div>
 

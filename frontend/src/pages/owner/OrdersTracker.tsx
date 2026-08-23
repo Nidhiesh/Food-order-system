@@ -39,6 +39,11 @@ interface Order {
   cancellationReason?: string | null;
   cancelledAt?: string | null;
   deliveredAt?: string | null;
+  payment?: {
+    status: string;
+    amount: number;
+  } | null;
+  hasOtherOrdersToday?: boolean;
 }
 
 export const OrdersTracker: React.FC = () => {
@@ -54,6 +59,34 @@ export const OrdersTracker: React.FC = () => {
   // Detail Modal state
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
+
+  // Cancel All Modal state
+  const [showCancelAllModal, setShowCancelAllModal] = useState<boolean>(false);
+  const [cancelAllReason, setCancelAllReason] = useState<string>('');
+  const [cancellingAll, setCancellingAll] = useState<boolean>(false);
+
+  const handleCancelAllOrders = async () => {
+    if (!cancelAllReason.trim()) {
+      alert('Please provide a reason for cancelling all orders.');
+      return;
+    }
+
+    try {
+      setCancellingAll(true);
+      const res = await ownerApi.cancelAllOrders(cancelAllReason.trim());
+      if (res.success) {
+        alert(res.message);
+        setShowCancelAllModal(false);
+        setCancelAllReason('');
+        fetchOrders();
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to cancel all orders.');
+    } finally {
+      setCancellingAll(false);
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -73,7 +106,7 @@ export const OrdersTracker: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(fetchOrders, 30000); // refresh every 30s
+    const interval = setInterval(fetchOrders, 5000); // refresh every 5s
     return () => clearInterval(interval);
   }, []);
 
@@ -82,8 +115,14 @@ export const OrdersTracker: React.FC = () => {
     let result = [...orders];
 
     // Status filter
-    if (statusFilter !== 'ALL') {
-      result = result.filter(o => o.orderStatus === statusFilter);
+    if (statusFilter === 'ALL') {
+      result = result.filter(o => 
+        o.orderStatus === 'CONFIRMED' || 
+        o.orderStatus === 'PREPARING' || 
+        o.orderStatus === 'PENDING_PAYMENT'
+      );
+    } else if (statusFilter === 'PREPARED') {
+      result = result.filter(o => o.orderStatus === 'READY');
     }
 
     // Search query
@@ -124,21 +163,33 @@ export const OrdersTracker: React.FC = () => {
       case 'CANCELLED':
       case 'PAYMENT_FAILED': return 'bg-rose-500/10 text-rose-400 border-rose-500/20';
       case 'CONFIRMED': return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
+      case 'READY': return 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
       default: return 'bg-slate-800 text-slate-400 border-slate-700';
     }
   };
 
   const allStatuses = [
     'CONFIRMED',
-    'DELIVERED'
+    'PREPARING',
+    'READY',
+    'DELIVERED',
+    'CANCELLED'
   ];
 
   return (
     <div className="animate-fade-in flex flex-col gap-6 text-left">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black text-white tracking-tight">Orders Queue</h1>
-        <p className="text-slate-400 text-xs mt-1">Live order dispatch & status management</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-black text-white tracking-tight">Orders Queue</h1>
+          <p className="text-slate-400 text-xs mt-1">Live order dispatch & status management</p>
+        </div>
+        <button
+          onClick={() => setShowCancelAllModal(true)}
+          className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+        >
+          Cancel All Orders
+        </button>
       </div>
 
       {/* Filter and Search Bar */}
@@ -157,7 +208,7 @@ export const OrdersTracker: React.FC = () => {
 
         {/* Filter buttons */}
         <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto no-scrollbar py-1">
-          {['ALL', 'CONFIRMED', 'DELIVERED', 'CANCELLED'].map(filter => (
+          {['ALL', 'PREPARED'].map(filter => (
             <button
               key={filter}
               onClick={() => setStatusFilter(filter)}
@@ -167,7 +218,7 @@ export const OrdersTracker: React.FC = () => {
                   : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
               }`}
             >
-              {filter.replace(/_/g, ' ')}
+              {filter === 'ALL' ? 'All' : 'Prepared'}
             </button>
           ))}
         </div>
@@ -196,6 +247,7 @@ export const OrdersTracker: React.FC = () => {
                 <tr className="bg-slate-950/40 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
                   <th className="p-4">Order ID</th>
                   <th className="p-4">Customer Name</th>
+                  <th className="p-4">Order Type</th>
                   <th className="p-4">Amount</th>
                   <th className="p-4">Payment</th>
                   <th className="p-4">Order Status</th>
@@ -204,7 +256,11 @@ export const OrdersTracker: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/80">
                 {filteredOrders.map((order) => (
-                  <tr key={order.id} className="hover:bg-slate-800/20 transition-colors">
+                  <tr 
+                    key={order.id} 
+                    onClick={() => setSelectedOrder(order)}
+                    className="hover:bg-slate-800/20 transition-colors cursor-pointer"
+                  >
                     <td className="p-4 font-bold text-white text-sm">
                       {order.publicOrderId}
                       <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">
@@ -216,6 +272,17 @@ export const OrdersTracker: React.FC = () => {
                       <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">
                         {order.customerPhone} &bull; {order.departmentClass || 'No Department'}
                       </span>
+                    </td>
+                    <td className="p-4">
+                      {order.hasOtherOrdersToday ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-amber-500/10 text-amber-400 border-amber-500/20 uppercase tracking-wider">
+                          Multiple Orders
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-slate-800 text-slate-400 border-slate-700 uppercase tracking-wider">
+                          First Order
+                        </span>
+                      )}
                     </td>
                     <td className="p-4 font-extrabold text-white text-sm">₹{order.totalAmount}</td>
                     <td className="p-4">
@@ -234,16 +301,31 @@ export const OrdersTracker: React.FC = () => {
                     </td>
                     <td className="p-4">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getStatusBadge(order.orderStatus)}`}>
-                        {order.orderStatus.replace(/_/g, ' ')}
+                        {order.orderStatus === 'READY' ? 'PREPARED' : order.orderStatus.replace(/_/g, ' ')}
                       </span>
                     </td>
                     <td className="p-4 text-right">
-                      <button
-                        onClick={() => setSelectedOrder(order)}
-                        className="bg-slate-850 hover:bg-slate-800 border border-slate-800 text-white font-extrabold text-[10px] px-3.5 py-1.5 rounded-xl cursor-pointer transition-all"
-                      >
-                        Manage
-                      </button>
+                      {order.orderStatus === 'READY' ? (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateStatus(order.id, 'CONFIRMED');
+                          }}
+                          className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[10px] px-3.5 py-1.5 rounded-xl cursor-pointer transition-all"
+                        >
+                          Not Prepared
+                        </button>
+                      ) : (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUpdateStatus(order.id, 'READY');
+                          }}
+                          className="bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-[10px] px-3.5 py-1.5 rounded-xl cursor-pointer transition-all"
+                        >
+                          Prepared
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -295,9 +377,18 @@ export const OrdersTracker: React.FC = () => {
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div className="flex flex-col gap-1">
                 <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider">Customer</span>
-                <span className="text-white font-bold flex items-center gap-1">
+                <span className="text-white font-bold flex flex-wrap items-center gap-1.5">
                   <User size={12} className="text-slate-400" />
                   {selectedOrder.customerName}
+                  {selectedOrder.hasOtherOrdersToday ? (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase tracking-wider">
+                      Multiple Orders Today
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-wider">
+                      First Order Today
+                    </span>
+                  )}
                 </span>
               </div>
 
@@ -322,8 +413,17 @@ export const OrdersTracker: React.FC = () => {
             <div>
               <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider mb-2.5 block">Ordered Items</span>
               <div className="flex flex-col gap-3 bg-slate-950/20 p-4 border border-slate-800/60 rounded-2xl">
-                {selectedOrder.items.map(item => (
-                  <div key={item.id} className="flex justify-between items-center text-xs">
+                {Object.values(
+                  selectedOrder.items.reduce((acc, item) => {
+                    if (!acc[item.name]) {
+                      acc[item.name] = { name: item.name, quantity: 0, subtotal: 0 };
+                    }
+                    acc[item.name].quantity += item.quantity;
+                    acc[item.name].subtotal += item.subtotal;
+                    return acc;
+                  }, {} as Record<string, { name: string; quantity: number; subtotal: number }>)
+                ).map((item, idx) => (
+                  <div key={idx} className="flex justify-between items-center text-xs">
                     <div className="text-slate-200 font-bold">
                       {item.name}
                       <span className="text-slate-500 font-semibold ml-1.5">× {item.quantity}</span>
@@ -332,9 +432,23 @@ export const OrdersTracker: React.FC = () => {
                   </div>
                 ))}
 
-                <div className="border-t border-slate-800 mt-2 pt-2 flex justify-between items-center text-xs">
-                  <span className="text-slate-400 font-semibold">Total Invoice</span>
-                  <span className="text-brand-400 font-black text-sm">₹{selectedOrder.totalAmount}</span>
+                <div className="border-t border-slate-800 mt-2 pt-2 flex flex-col gap-1">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400 font-semibold">Total Invoice</span>
+                    <span className="text-brand-400 font-black text-sm">₹{selectedOrder.totalAmount}</span>
+                  </div>
+                  {selectedOrder.payment && selectedOrder.payment.status === 'PAID' && selectedOrder.paymentMethod === 'COD' && (
+                    <>
+                      <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                        <span>Paid Online</span>
+                        <span>₹{selectedOrder.payment.amount}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+                        <span>Pending Cash</span>
+                        <span>₹{Math.max(0, selectedOrder.totalAmount - selectedOrder.payment.amount)}</span>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -355,6 +469,71 @@ export const OrdersTracker: React.FC = () => {
                 <strong>Cancellation Reason:</strong> {selectedOrder.cancellationReason}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* CANCEL ALL ORDERS DIALOG */}
+      {showCancelAllModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-850 rounded-3xl shadow-2xl p-6 animate-slide-up text-left flex flex-col gap-5">
+            {/* Title / Close */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-extrabold text-white">Cancel All Orders</h3>
+                <span className="text-[10px] text-slate-500 font-bold">This will cancel all active orders for today</span>
+              </div>
+              <button
+                onClick={() => {
+                  setShowCancelAllModal(false);
+                  setCancelAllReason('');
+                }}
+                className="text-slate-500 hover:text-slate-300 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Input field for reason */}
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Reason for cancellation
+              </label>
+              <input
+                type="text"
+                placeholder="Enter cancellation reason (e.g. Shop Closing, Power Cut)..."
+                value={cancelAllReason}
+                onChange={(e) => setCancelAllReason(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-850 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none text-white placeholder:text-slate-700"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                onClick={() => {
+                  setShowCancelAllModal(false);
+                  setCancelAllReason('');
+                }}
+                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-slate-400 font-extrabold text-xs rounded-xl border border-slate-850 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCancelAllOrders}
+                disabled={cancellingAll}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-800 disabled:text-slate-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                {cancellingAll ? (
+                  <>
+                    <Loader className="animate-spin" size={12} />
+                    Cancelling...
+                  </>
+                ) : (
+                  'Confirm Cancel All'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

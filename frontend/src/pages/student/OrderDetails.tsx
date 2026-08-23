@@ -37,7 +37,7 @@ export const OrderDetails: React.FC = () => {
     }
   };
 
-  const fetchOrderDetails = async () => {
+  const fetchOrderDetails = async (showLoading = false) => {
     if (!orderId || !token) {
       setError('Missing order ID or access token.');
       setLoading(false);
@@ -45,23 +45,33 @@ export const OrderDetails: React.FC = () => {
     }
 
     try {
-      setLoading(true);
-      setError('');
+      if (showLoading) {
+        setLoading(true);
+        setError('');
+      }
       const res = await studentApi.getOrderDetails(orderId, token);
       if (res.success) {
         setOrder(res.order);
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to load order details.');
+      if (showLoading) {
+        setError(err.response?.data?.message || 'Failed to load order details.');
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchOrderDetails();
+    fetchOrderDetails(true);
     fetchShopStatus();
+    const interval = setInterval(() => {
+      fetchOrderDetails(false);
+    }, 5000);
+    return () => clearInterval(interval);
   }, [orderId, token]);
 
   const handleCancelOrder = async () => {
@@ -174,7 +184,7 @@ export const OrderDetails: React.FC = () => {
         </div>
 
         <button
-          onClick={fetchOrderDetails}
+          onClick={() => fetchOrderDetails(true)}
           className="w-10 h-10 rounded-2xl border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-50 transition-all cursor-pointer"
           title="Refresh status"
         >
@@ -208,9 +218,6 @@ export const OrderDetails: React.FC = () => {
             <Clock size={24} className="shrink-0 animate-pulse-slow" />
             <div className="text-left">
               <span className="font-extrabold text-sm block">Payment Pending</span>
-              <span className="text-xs text-amber-600 block leading-snug">
-                Please complete the payment callback via checkout.
-              </span>
             </div>
           </div>
         ) : (
