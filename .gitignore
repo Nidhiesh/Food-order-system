@@ -1,0 +1,25 @@
+# Node modules
+node_modules/
+**/node_modules/
+
+# Local databases
+pg_data/
+**/pg_data/
+
+# Environment files (sensitive keys)
+.env
+**/.env
+.env*.local
+
+# Build output
+dist/
+**/dist/
+build/
+**/build/
+.next/
+
+# IDE / System files
+.vscode/
+.idea/
+.DS_Store
+*.log
