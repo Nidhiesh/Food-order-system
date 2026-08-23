@@ -165,22 +165,24 @@ async function verifyRazorpayPayment(razorpayOrderId, razorpayPaymentId, razorpa
                         paymentStatus: 'FAILED',
                     },
                 });
-                // Restore MenuItem stock quantities
+                // Restore MenuItem stock quantities (Disabled for unlimited stock count)
+                /*
                 const orderItems = await tx.orderItem.findMany({
-                    where: { orderId: payment.orderId },
+                  where: { orderId: payment.orderId },
                 });
                 for (const item of orderItems) {
-                    if (item.menuItemId) {
-                        await tx.menuItem.update({
-                            where: { id: item.menuItemId },
-                            data: {
-                                availableQuantity: {
-                                    increment: item.quantity,
-                                },
-                            },
-                        });
-                    }
+                  if (item.menuItemId) {
+                    await tx.menuItem.update({
+                      where: { id: item.menuItemId },
+                      data: {
+                        availableQuantity: {
+                          increment: item.quantity,
+                        },
+                      },
+                    });
+                  }
                 }
+                */
                 throw new error_1.AppError('Payment signature verification failed. Tampering detected.', 400);
             }
         }

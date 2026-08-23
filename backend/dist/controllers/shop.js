@@ -17,6 +17,9 @@ async function getPublicStatus(req, res, next) {
         res.json({
             success: true,
             businessDate: state.businessDate,
+            openingTime: state.openingTime,
+            closingTime: state.closingTime,
+            cancellationCutoff: state.cancellationCutoff,
             status,
         });
     }

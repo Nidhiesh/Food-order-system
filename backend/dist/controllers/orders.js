@@ -81,22 +81,27 @@ async function createOrder(req, res, next) {
                 if (!menuItem.isAvailable) {
                     throw new error_1.AppError(`Food item '${menuItem.name}' is sold out/unavailable`, 400);
                 }
+                // Stock checks and decrement disabled for unlimited stock count
+                /*
                 if (menuItem.availableQuantity < item.quantity) {
-                    throw new error_1.AppError(`Insufficient stock for '${menuItem.name}'. Only ${menuItem.availableQuantity} left.`, 400);
+                  throw new AppError(`Insufficient stock for '${menuItem.name}'. Only ${menuItem.availableQuantity} left.`, 400);
                 }
+        
                 // Deduct stock atomically
                 const updatedMenuItem = await tx.menuItem.update({
-                    where: { id: menuItem.id },
-                    data: {
-                        availableQuantity: {
-                            decrement: item.quantity,
-                        },
+                  where: { id: menuItem.id },
+                  data: {
+                    availableQuantity: {
+                      decrement: item.quantity,
                     },
+                  },
                 });
+        
                 // Fail-safe check
                 if (updatedMenuItem.availableQuantity < 0) {
-                    throw new error_1.AppError(`Stock for '${menuItem.name}' was depleted by a concurrent order`, 400);
+                  throw new AppError(`Stock for '${menuItem.name}' was depleted by a concurrent order`, 400);
                 }
+                */
                 const subtotal = menuItem.price * item.quantity;
                 totalAmount += subtotal;
                 orderItemsData.push({
@@ -240,19 +245,21 @@ async function cancelOrder(req, res, next) {
                     cancelledAt: new Date(),
                 },
             });
-            // Restore MenuItem stock quantities
+            // Restore MenuItem stock quantities (Disabled for unlimited stock count)
+            /*
             for (const item of order.items) {
-                if (item.menuItemId) {
-                    await tx.menuItem.update({
-                        where: { id: item.menuItemId },
-                        data: {
-                            availableQuantity: {
-                                increment: item.quantity,
-                            },
-                        },
-                    });
-                }
+              if (item.menuItemId) {
+                await tx.menuItem.update({
+                  where: { id: item.menuItemId },
+                  data: {
+                    availableQuantity: {
+                      increment: item.quantity,
+                    },
+                  },
+                });
+              }
             }
+            */
         });
         res.json({
             success: true,
