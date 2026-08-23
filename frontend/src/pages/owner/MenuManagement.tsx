@@ -57,10 +57,12 @@ export const MenuManagement: React.FC = () => {
   const [editQty, setEditQty] = useState<number>(0);
   const [updatingMenuId, setUpdatingMenuId] = useState<string | null>(null);
 
-  const loadData = async () => {
+  const loadData = async (showLoading = false) => {
     try {
-      setLoading(true);
-      setError('');
+      if (showLoading) {
+        setLoading(true);
+        setError('');
+      }
       if (activeTab === 'catalog') {
         const res = await ownerApi.getCatalog();
         if (res.success) setCatalog(res.catalog || []);
@@ -70,14 +72,22 @@ export const MenuManagement: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to load menu data.');
+      if (showLoading) {
+        setError(err.response?.data?.message || 'Failed to load menu data.');
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+    const interval = setInterval(() => {
+      loadData(false);
+    }, 5000);
+    return () => clearInterval(interval);
   }, [activeTab]);
 
   const openAddCatalogModal = () => {

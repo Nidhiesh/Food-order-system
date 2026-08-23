@@ -61,7 +61,7 @@ export const CodPending: React.FC = () => {
 
   useEffect(() => {
     fetchCodPending();
-    const interval = setInterval(fetchCodPending, 20000); // refresh every 20s
+    const interval = setInterval(fetchCodPending, 5000); // refresh every 5s
     return () => clearInterval(interval);
   }, []);
 

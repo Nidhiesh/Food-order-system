@@ -32,10 +32,12 @@ export const SalesSummary: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
 
-  const loadData = async () => {
+  const loadData = async (showLoading = false) => {
     try {
-      setLoading(true);
-      setError('');
+      if (showLoading) {
+        setLoading(true);
+        setError('');
+      }
 
       const [statsRes, ordersRes] = await Promise.all([
         ownerApi.getSalesSummary(),
@@ -55,14 +57,22 @@ export const SalesSummary: React.FC = () => {
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to load sales information.');
+      if (showLoading) {
+        setError(err.response?.data?.message || 'Failed to load sales information.');
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadData(true);
+    const interval = setInterval(() => {
+      loadData(false);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading && !stats) {

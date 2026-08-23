@@ -21,7 +21,7 @@ export const OrderHistory: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (showLoading = false) => {
     const existing = localStorage.getItem('college_food_order_tokens');
     const tokens = existing ? JSON.parse(existing) : [];
 
@@ -32,22 +32,32 @@ export const OrderHistory: React.FC = () => {
     }
 
     try {
-      setLoading(true);
-      setError('');
+      if (showLoading) {
+        setLoading(true);
+        setError('');
+      }
       const res = await studentApi.getOrderHistory(tokens);
       if (res.success) {
         setOrders(res.orders || []);
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to retrieve order history.');
+      if (showLoading) {
+        setError(err.response?.data?.message || 'Failed to retrieve order history.');
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchHistory();
+    fetchHistory(true);
+    const interval = setInterval(() => {
+      fetchHistory(false);
+    }, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) {
@@ -65,7 +75,7 @@ export const OrderHistory: React.FC = () => {
         <span className="text-rose-500 font-bold block mb-2">Error Loading History</span>
         <p className="text-slate-500 text-sm max-w-xs mb-6">{error}</p>
         <button
-          onClick={fetchHistory}
+          onClick={() => fetchHistory(true)}
           className="bg-brand-600 hover:bg-brand-700 text-white font-bold text-sm px-6 py-2.5 rounded-2xl cursor-pointer"
         >
           Try Again

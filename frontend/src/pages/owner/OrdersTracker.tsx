@@ -106,7 +106,7 @@ export const OrdersTracker: React.FC = () => {
 
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(fetchOrders, 30000); // refresh every 30s
+    const interval = setInterval(fetchOrders, 5000); // refresh every 5s
     return () => clearInterval(interval);
   }, []);
 
