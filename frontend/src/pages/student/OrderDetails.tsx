@@ -197,14 +197,15 @@ export const OrderDetails: React.FC = () => {
         <div className="flex items-center justify-between mb-6">
           <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Order Status</span>
           <div className="flex items-center gap-2">
-            {order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING' && (
+            {order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING' ? (
               <span className="px-3 py-1 rounded-full text-xs font-black uppercase border border-amber-200 bg-amber-100/60 text-amber-700 animate-pulse">
                 Payment Pending
               </span>
+            ) : (
+              <span className={`px-3 py-1 rounded-full text-xs font-black uppercase border ${getStatusColor(order.orderStatus)} bg-opacity-10`}>
+                {order.orderStatus.replace(/_/g, ' ')}
+              </span>
             )}
-            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase border ${getStatusColor(order.orderStatus)} bg-opacity-10`}>
-              {order.orderStatus.replace(/_/g, ' ')}
-            </span>
           </div>
         </div>
 
