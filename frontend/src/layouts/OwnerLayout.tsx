@@ -22,6 +22,7 @@ export const OwnerLayout: React.FC = () => {
   const location = useLocation();
   const [shopOpen, setShopOpen] = useState<boolean>(false);
   const [shopStatusText, setShopStatusText] = useState<string>('Loading...');
+  const [shopState, setShopState] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
 
   const fetchShopStatus = async () => {
@@ -30,6 +31,7 @@ export const OwnerLayout: React.FC = () => {
       if (data?.success) {
         setShopOpen(data.status.isOpen);
         setShopStatusText(data.status.message);
+        setShopState(data.shopState);
       }
     } catch (error) {
       console.error('Failed to fetch shop status for header', error);
@@ -52,14 +54,32 @@ export const OwnerLayout: React.FC = () => {
   }, [isAuthenticated]);
 
   const toggleShopManual = async () => {
+    const prevShopOpen = shopOpen;
+    const nextShopOpen = !shopOpen;
+    const prevManualClosed = shopState?.manualClosed;
+    const nextManualClosed = !prevManualClosed;
+
+    // Optimistic UI updates
+    setShopOpen(nextShopOpen);
+    setShopStatusText(nextShopOpen ? 'Shop Open' : 'The shop is currently not accepting orders.');
+    if (shopState) {
+      setShopState((prev: any) => prev ? { ...prev, manualClosed: nextManualClosed } : null);
+    }
+
     try {
-      if (shopOpen) {
+      if (prevShopOpen) {
         await ownerApi.closeShop();
       } else {
         await ownerApi.openShop();
       }
       await fetchShopStatus();
     } catch (error) {
+      // Rollback
+      setShopOpen(prevShopOpen);
+      setShopStatusText(prevShopOpen ? 'Shop Open' : 'The shop is currently not accepting orders.');
+      if (shopState) {
+        setShopState((prev: any) => prev ? { ...prev, manualClosed: prevManualClosed } : null);
+      }
       alert('Failed to update shop status');
     }
   };
@@ -218,7 +238,15 @@ export const OwnerLayout: React.FC = () => {
 
       {/* Main Dashboard Panel */}
       <main className="flex-grow p-6 md:p-8 overflow-y-auto max-w-full">
-        <Outlet context={{ fetchShopStatus }} />
+        <Outlet context={{ 
+          shopOpen, 
+          setShopOpen, 
+          shopStatusText, 
+          setShopStatusText, 
+          shopState, 
+          setShopState, 
+          fetchShopStatus 
+        }} />
       </main>
     </div>
   );
