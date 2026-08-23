@@ -43,42 +43,55 @@ export const CodPending: React.FC = () => {
     );
   });
 
-  const fetchCodPending = async () => {
+  const fetchCodPending = async (showLoading = false) => {
     try {
-      setLoading(true);
-      setError('');
+      if (showLoading) {
+        setLoading(true);
+        setError('');
+      }
       const res = await ownerApi.getCodPendingOrders();
       if (res.success) {
         setOrders(res.orders || []);
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to load COD pending queue.');
+      if (showLoading) {
+        setError(err.response?.data?.message || 'Failed to load COD pending queue.');
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchCodPending();
-    const interval = setInterval(fetchCodPending, 5000); // refresh every 5s
+    fetchCodPending(true);
+    const interval = setInterval(() => fetchCodPending(false), 5000); // refresh every 5s
     return () => clearInterval(interval);
   }, []);
 
   const handleMarkDelivered = async (orderId: string, publicId: string) => {
-    if (actionId) return; // prevent duplicate clicks
+    if (actionId) return;
+
+    const previousOrders = [...orders];
+
+    // 1. Optimistic UI update
+    setOrders(prev => prev.filter(o => o.id !== orderId));
+    setSuccessMsg(`Order ${publicId} marked delivered and paid!`);
+    const successTimeout = setTimeout(() => setSuccessMsg(''), 3000);
 
     try {
       setActionId(orderId);
       setError('');
-      const res = await ownerApi.markCodDelivered(orderId);
-      if (res.success) {
-        setSuccessMsg(`Order ${publicId} marked delivered and paid!`);
-        // Remove from local list instantly
-        setOrders(prev => prev.filter(o => o.id !== orderId));
-        setTimeout(() => setSuccessMsg(''), 3000);
-      }
+      await ownerApi.markCodDelivered(orderId);
+      // Background sync
+      fetchCodPending(false);
     } catch (err: any) {
+      // Rollback on error
+      clearTimeout(successTimeout);
+      setSuccessMsg('');
+      setOrders(previousOrders);
       setError(err.response?.data?.message || 'Failed to update delivery status.');
     } finally {
       setActionId(null);

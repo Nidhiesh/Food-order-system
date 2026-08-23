@@ -88,25 +88,31 @@ export const OrdersTracker: React.FC = () => {
     }
   };
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (showLoading = false) => {
     try {
-      setLoading(true);
-      setError('');
+      if (showLoading) {
+        setLoading(true);
+        setError('');
+      }
       const res = await ownerApi.getTodayOrders();
       if (res.success) {
         setOrders(res.orders || []);
       }
     } catch (err: any) {
       console.error(err);
-      setError(err.response?.data?.message || 'Failed to fetch today\'s orders queue.');
+      if (showLoading) {
+        setError(err.response?.data?.message || 'Failed to fetch today\'s orders queue.');
+      }
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 5000); // refresh every 5s
+    fetchOrders(true);
+    const interval = setInterval(() => fetchOrders(false), 5000); // refresh every 5s
     return () => clearInterval(interval);
   }, []);
 
@@ -139,18 +145,24 @@ export const OrdersTracker: React.FC = () => {
   }, [orders, searchQuery, statusFilter]);
 
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
+    const previousOrders = [...orders];
+    const previousSelectedOrder = selectedOrder;
+
+    // 1. Optimistic UI update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, orderStatus: newStatus } : o));
+    if (selectedOrder && selectedOrder.id === orderId) {
+      setSelectedOrder(prev => prev ? { ...prev, orderStatus: newStatus } : null);
+    }
+
     try {
       setUpdatingStatus(true);
       await ownerApi.updateOrderStatus(orderId, newStatus);
-      
-      // Update local state for selected order and list
-      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, orderStatus: newStatus } : o));
-      if (selectedOrder) {
-        setSelectedOrder(prev => prev ? { ...prev, orderStatus: newStatus } : null);
-      }
-      
-      fetchOrders();
+      // Background sync
+      fetchOrders(false);
     } catch (err: any) {
+      // Rollback on error
+      setOrders(previousOrders);
+      setSelectedOrder(previousSelectedOrder);
       alert(err.response?.data?.message || 'Failed to update order status');
     } finally {
       setUpdatingStatus(false);
