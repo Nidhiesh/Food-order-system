@@ -38,7 +38,11 @@ export const OrderHistory: React.FC = () => {
       }
       const res = await studentApi.getOrderHistory(tokens);
       if (res.success) {
-        setOrders(res.orders || []);
+        // Exclude delivered orders from history
+        const activeOrders = (res.orders || []).filter(
+          (o: OrderSummary) => o.orderStatus !== 'DELIVERED'
+        );
+        setOrders(activeOrders);
       }
     } catch (err: any) {
       console.error(err);
@@ -155,7 +159,14 @@ export const OrderHistory: React.FC = () => {
 
                   <div className="flex items-center gap-2">
                     <span className="font-black text-brand-700 text-sm">₹{order.totalAmount}</span>
-                    <span className="text-[10px] text-slate-400 font-semibold">({order.paymentMethod})</span>
+                    <span className="text-[10px] text-slate-400 font-semibold flex items-center gap-1.5">
+                      <span>({order.paymentMethod})</span>
+                      {order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING' && (
+                        <span className="text-amber-600 font-extrabold uppercase text-[9px] tracking-wider bg-amber-50 px-1.5 py-0.5 rounded">
+                          Payment Pending
+                        </span>
+                      )}
+                    </span>
                   </div>
                 </div>
 

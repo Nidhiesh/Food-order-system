@@ -196,9 +196,16 @@ export const OrderDetails: React.FC = () => {
       <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-premium mb-6">
         <div className="flex items-center justify-between mb-6">
           <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Order Status</span>
-          <span className={`px-3 py-1 rounded-full text-xs font-black uppercase border ${getStatusColor(order.orderStatus)} bg-opacity-10`}>
-            {order.orderStatus.replace(/_/g, ' ')}
-          </span>
+          <div className="flex items-center gap-2">
+            {order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING' && (
+              <span className="px-3 py-1 rounded-full text-xs font-black uppercase border border-amber-200 bg-amber-100/60 text-amber-700 animate-pulse">
+                Payment Pending
+              </span>
+            )}
+            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase border ${getStatusColor(order.orderStatus)} bg-opacity-10`}>
+              {order.orderStatus.replace(/_/g, ' ')}
+            </span>
+          </div>
         </div>
 
         {currentStepIndex === -2 ? (
@@ -222,40 +229,53 @@ export const OrderDetails: React.FC = () => {
           </div>
         ) : (
           // Standard stepper progress
-          <div className="relative flex items-center justify-between w-full mt-4 mb-2">
-            {/* Background line */}
-            <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-0.5 bg-slate-100 z-0"></div>
-            {/* Active progress line */}
-            <div 
-              className="absolute left-6 top-1/2 -translate-y-1/2 h-0.5 bg-brand-600 z-0 transition-all duration-500"
-              style={{ width: `${currentStepIndex >= 0 ? (currentStepIndex / (steps.length - 1)) * 90 : 0}%` }}
-            ></div>
-
-            {steps.map((step, idx) => {
-              const isActive = idx <= currentStepIndex;
-              const isCurrent = idx === currentStepIndex;
-              return (
-                <div key={step} className="flex flex-col items-center z-10 relative">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
-                    isActive 
-                      ? 'bg-brand-600 border-brand-600 text-white font-bold' 
-                      : 'bg-white border-slate-200 text-slate-400'
-                  } ${isCurrent ? 'ring-4 ring-brand-100 scale-110' : ''}`}>
-                    {idx === 3 && isActive ? (
-                      <CheckCircle size={14} className="stroke-[3]" />
-                    ) : (
-                      <span className="text-xs">{idx + 1}</span>
-                    )}
-                  </div>
-                  <span className={`text-[10px] font-bold uppercase tracking-wider mt-2 ${
-                    isActive ? 'text-slate-800' : 'text-slate-400'
-                  }`}>
-                    {step === 'CONFIRMED' ? 'Placed' : step.toLowerCase()}
+          <>
+            {order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING' && (
+              <div className="flex items-start gap-3 p-4 bg-amber-50/50 rounded-2xl text-amber-800 border border-amber-100/60 mb-6">
+                <Clock size={18} className="shrink-0 text-amber-600 mt-0.5 animate-pulse" />
+                <div className="text-left">
+                  <span className="font-extrabold text-xs block">Cash on Delivery &bull; Payment Pending</span>
+                  <span className="text-[10px] text-amber-600 block leading-relaxed mt-0.5">
+                    Please pay ₹{order.totalAmount} in cash to the food counter when you collect your food.
                   </span>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            )}
+            <div className="relative flex items-center justify-between w-full mt-4 mb-2">
+              {/* Background line */}
+              <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-0.5 bg-slate-100 z-0"></div>
+              {/* Active progress line */}
+              <div 
+                className="absolute left-6 top-1/2 -translate-y-1/2 h-0.5 bg-brand-600 z-0 transition-all duration-500"
+                style={{ width: `${currentStepIndex >= 0 ? (currentStepIndex / (steps.length - 1)) * 90 : 0}%` }}
+              ></div>
+
+              {steps.map((step, idx) => {
+                const isActive = idx <= currentStepIndex;
+                const isCurrent = idx === currentStepIndex;
+                return (
+                  <div key={step} className="flex flex-col items-center z-10 relative">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
+                      isActive 
+                        ? 'bg-brand-600 border-brand-600 text-white font-bold' 
+                        : 'bg-white border-slate-200 text-slate-400'
+                    } ${isCurrent ? 'ring-4 ring-brand-100 scale-110' : ''}`}>
+                      {idx === 3 && isActive ? (
+                        <CheckCircle size={14} className="stroke-[3]" />
+                      ) : (
+                        <span className="text-xs">{idx + 1}</span>
+                      )}
+                    </div>
+                    <span className={`text-[10px] font-bold uppercase tracking-wider mt-2 ${
+                      isActive ? 'text-slate-800' : 'text-slate-400'
+                    }`}>
+                      {step === 'CONFIRMED' ? 'Placed' : step.toLowerCase()}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
