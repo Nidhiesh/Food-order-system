@@ -27,219 +27,85 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
 
     // Use transaction to create order and deduct stock atomically
     const result = await prisma.$transaction(async (tx) => {
-      // 1. Check if there is an existing active order for this business date with the same customer name and phone
-      const existingOrder = await tx.order.findFirst({
-        where: {
+      let totalAmount = 0;
+      const orderItemsData = [];
+
+      for (const item of parsed.items) {
+        // Fetch and lock MenuItem for update to prevent concurrent race conditions
+        const menuItem = await tx.menuItem.findUnique({
+          where: { id: item.menuItemId },
+        });
+
+        if (!menuItem) {
+          throw new AppError(`Food item not found on today's menu`, 404);
+        }
+
+        if (menuItem.businessDate !== businessDate) {
+          throw new AppError(`Food item '${menuItem.name}' is not on today's menu`, 400);
+        }
+
+        if (!menuItem.isAvailable) {
+          throw new AppError(`Food item '${menuItem.name}' is sold out/unavailable`, 400);
+        }
+
+        const subtotal = menuItem.price * item.quantity;
+        totalAmount += subtotal;
+
+        orderItemsData.push({
+          menuItemId: menuItem.id,
+          name: menuItem.name,
+          unitPrice: menuItem.price,
+          quantity: item.quantity,
+          subtotal,
+        });
+      }
+
+      // Generate public Order ID and tracking token
+      const randomDigits = Math.floor(100000 + Math.random() * 900000);
+      const publicOrderId = `ORD-${businessDate.replace(/-/g, '')}-${randomDigits}`;
+      const trackingToken = crypto.randomBytes(32).toString('hex');
+
+      // Determine initial statuses
+      let orderStatus = 'CONFIRMED';
+      let paymentStatus = 'PENDING';
+
+      if (parsed.paymentMethod === 'ONLINE') {
+        orderStatus = 'PENDING_PAYMENT';
+        paymentStatus = 'PENDING';
+      }
+
+      // Create main Order
+      const newOrder = await tx.order.create({
+        data: {
+          publicOrderId,
           businessDate,
           customerName: parsed.customerName,
           customerPhone: parsed.customerPhone,
-          orderStatus: {
-            in: ['PENDING_PAYMENT', 'CONFIRMED', 'PREPARING'],
+          departmentClass: parsed.departmentClass,
+          totalAmount,
+          paymentMethod: parsed.paymentMethod,
+          paymentStatus,
+          orderStatus,
+          trackingToken,
+          items: {
+            create: orderItemsData,
           },
         },
         include: {
           items: true,
-          payment: true,
         },
       });
 
-      if (existingOrder) {
-        let additionalAmount = 0;
-        const itemsToUpdate = [];
-        const itemsToCreate = [];
-
-        for (const item of parsed.items) {
-          const menuItem = await tx.menuItem.findUnique({
-            where: { id: item.menuItemId },
-          });
-
-          if (!menuItem) {
-            throw new AppError(`Food item not found on today's menu`, 404);
-          }
-
-          if (menuItem.businessDate !== businessDate) {
-            throw new AppError(`Food item '${menuItem.name}' is not on today's menu`, 400);
-          }
-
-          if (!menuItem.isAvailable) {
-            throw new AppError(`Food item '${menuItem.name}' is sold out/unavailable`, 400);
-          }
-
-          const subtotal = menuItem.price * item.quantity;
-          additionalAmount += subtotal;
-
-          const existingItem = existingOrder.items.find(
-            (i) => i.menuItemId === menuItem.id
-          );
-
-          if (existingItem) {
-            itemsToUpdate.push({
-              id: existingItem.id,
-              quantity: existingItem.quantity + item.quantity,
-              subtotal: existingItem.subtotal + subtotal,
-            });
-          } else {
-            itemsToCreate.push({
-              menuItemId: menuItem.id,
-              name: menuItem.name,
-              unitPrice: menuItem.price,
-              quantity: item.quantity,
-              subtotal,
-            });
-          }
-        }
-
-        // Apply updates and creations for items
-        for (const item of itemsToUpdate) {
-          await tx.orderItem.update({
-            where: { id: item.id },
-            data: {
-              quantity: item.quantity,
-              subtotal: item.subtotal,
-            },
-          });
-        }
-
-        if (itemsToCreate.length > 0) {
-          await tx.orderItem.createMany({
-            data: itemsToCreate.map((item) => ({
-              orderId: existingOrder.id,
-              menuItemId: item.menuItemId,
-              name: item.name,
-              unitPrice: item.unitPrice,
-              quantity: item.quantity,
-              subtotal: item.subtotal,
-            })),
-          });
-        }
-
-        const newTotalAmount = existingOrder.totalAmount + additionalAmount;
-
-        let orderStatus = existingOrder.orderStatus;
-        let paymentStatus = existingOrder.paymentStatus;
-        let paymentMethod = existingOrder.paymentMethod;
-        let rzpOrder = null;
-
-        if (parsed.paymentMethod === 'ONLINE') {
-          if (existingOrder.payment) {
-            await tx.payment.delete({
-              where: { orderId: existingOrder.id },
-            });
-          }
-          rzpOrder = await createRazorpayOrder(existingOrder.id, additionalAmount, tx);
-
-          orderStatus = 'PENDING_PAYMENT';
-          paymentStatus = 'PENDING';
-          paymentMethod = 'ONLINE';
-        } else {
-          paymentMethod = 'COD';
-          paymentStatus = 'PENDING';
-          if (existingOrder.payment && existingOrder.payment.status === 'PENDING') {
-            await tx.payment.delete({
-              where: { orderId: existingOrder.id },
-            });
-          }
-          orderStatus = 'CONFIRMED';
-        }
-
-        const updatedOrder = await tx.order.update({
-          where: { id: existingOrder.id },
-          data: {
-            totalAmount: newTotalAmount,
-            paymentMethod,
-            paymentStatus,
-            orderStatus,
-          },
-          include: {
-            items: true,
-          },
-        });
-
-        return {
-          order: updatedOrder,
-          razorpayOrder: rzpOrder,
-        };
-      } else {
-        let totalAmount = 0;
-        const orderItemsData = [];
-
-        for (const item of parsed.items) {
-          // Fetch and lock MenuItem for update to prevent concurrent race conditions
-          const menuItem = await tx.menuItem.findUnique({
-            where: { id: item.menuItemId },
-          });
-
-          if (!menuItem) {
-            throw new AppError(`Food item not found on today's menu`, 404);
-          }
-
-          if (menuItem.businessDate !== businessDate) {
-            throw new AppError(`Food item '${menuItem.name}' is not on today's menu`, 400);
-          }
-
-          if (!menuItem.isAvailable) {
-            throw new AppError(`Food item '${menuItem.name}' is sold out/unavailable`, 400);
-          }
-
-          const subtotal = menuItem.price * item.quantity;
-          totalAmount += subtotal;
-
-          orderItemsData.push({
-            menuItemId: menuItem.id,
-            name: menuItem.name,
-            unitPrice: menuItem.price,
-            quantity: item.quantity,
-            subtotal,
-          });
-        }
-
-        // Generate public Order ID and tracking token
-        const randomDigits = Math.floor(100000 + Math.random() * 900000);
-        const publicOrderId = `ORD-${businessDate.replace(/-/g, '')}-${randomDigits}`;
-        const trackingToken = crypto.randomBytes(32).toString('hex');
-
-        // Determine initial statuses
-        let orderStatus = 'CONFIRMED';
-        let paymentStatus = 'PENDING';
-
-        if (parsed.paymentMethod === 'ONLINE') {
-          orderStatus = 'PENDING_PAYMENT';
-          paymentStatus = 'PENDING';
-        }
-
-        // Create main Order
-        const newOrder = await tx.order.create({
-          data: {
-            publicOrderId,
-            businessDate,
-            customerName: parsed.customerName,
-            customerPhone: parsed.customerPhone,
-            departmentClass: parsed.departmentClass,
-            totalAmount,
-            paymentMethod: parsed.paymentMethod,
-            paymentStatus,
-            orderStatus,
-            trackingToken,
-            items: {
-              create: orderItemsData,
-            },
-          },
-          include: {
-            items: true,
-          },
-        });
-
-        // Handle Online Payment initialization
-        let rzpOrder = null;
-        if (parsed.paymentMethod === 'ONLINE') {
-          rzpOrder = await createRazorpayOrder(newOrder.id, totalAmount, tx);
-        }
-
-        return {
-          order: newOrder,
-          razorpayOrder: rzpOrder,
-        };
+      // Handle Online Payment initialization
+      let rzpOrder = null;
+      if (parsed.paymentMethod === 'ONLINE') {
+        rzpOrder = await createRazorpayOrder(newOrder.id, totalAmount, tx);
       }
+
+      return {
+        order: newOrder,
+        razorpayOrder: rzpOrder,
+      };
     });
 
     res.status(201).json({
@@ -404,6 +270,214 @@ export async function getOrderHistory(req: Request, res: Response, next: NextFun
 // OWNER ENDPOINTS
 // ==========================================
 
+function groupActiveOrders(orders: any[], businessDate: string) {
+  const groupedOrders: any[] = [];
+  const activeGroups: Record<string, any[]> = {};
+  
+  for (const order of orders) {
+    const isPrepActive = ['PENDING_PAYMENT', 'CONFIRMED', 'PREPARING'].includes(order.orderStatus);
+    
+    if (isPrepActive) {
+      const key = `${order.customerName.trim().toLowerCase()}_${order.customerPhone.trim()}`;
+      if (!activeGroups[key]) {
+        activeGroups[key] = [];
+      }
+      activeGroups[key].push(order);
+    } else {
+      groupedOrders.push({
+        ...order,
+        mergedOrderIds: [order.id],
+        isGrouped: false,
+      });
+    }
+  }
+
+  for (const key of Object.keys(activeGroups)) {
+    const group = activeGroups[key];
+    if (group.length === 1) {
+      groupedOrders.push({
+        ...group[0],
+        mergedOrderIds: [group[0].id],
+        isGrouped: false,
+      });
+      continue;
+    }
+
+    group.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const primary = group[0];
+
+    const itemMap: Record<string, any> = {};
+
+    for (const order of group) {
+      for (const item of order.items) {
+        if (!itemMap[item.name]) {
+          itemMap[item.name] = {
+            id: item.id,
+            orderId: primary.id,
+            menuItemId: item.menuItemId,
+            name: item.name,
+            unitPrice: item.unitPrice,
+            quantity: 0,
+            subtotal: 0,
+          };
+        }
+        itemMap[item.name].quantity += item.quantity;
+        itemMap[item.name].subtotal += item.subtotal;
+      }
+    }
+
+    const totalAmount = group.reduce((sum, o) => sum + o.totalAmount, 0);
+
+    let totalOnlinePaidAmount = 0;
+    for (const o of group) {
+      if (o.payment && o.payment.status === 'PAID') {
+        totalOnlinePaidAmount += o.payment.amount;
+      }
+    }
+
+    let orderStatus = 'PENDING_PAYMENT';
+    if (group.some(o => o.orderStatus === 'CONFIRMED')) {
+      orderStatus = 'CONFIRMED';
+    } else if (group.some(o => o.orderStatus === 'PREPARING')) {
+      orderStatus = 'PREPARING';
+    }
+
+    const hasCod = group.some(o => o.paymentMethod === 'COD');
+    const paymentMethod = (hasCod || totalAmount > totalOnlinePaidAmount) ? 'COD' : 'ONLINE';
+    const paymentStatus = totalOnlinePaidAmount >= totalAmount ? 'PAID' : 'PENDING';
+
+    let payment = null;
+    if (totalOnlinePaidAmount > 0) {
+      payment = {
+        id: 'virtual-payment-' + primary.id,
+        orderId: primary.id,
+        gateway: 'RAZORPAY',
+        gatewayOrderId: 'virtual-gateway-' + primary.id,
+        amount: totalOnlinePaidAmount,
+        status: 'PAID',
+        createdAt: primary.createdAt,
+        updatedAt: primary.updatedAt,
+      };
+    }
+
+    const virtualOrder = {
+      ...primary,
+      items: Object.values(itemMap),
+      totalAmount,
+      orderStatus,
+      paymentMethod,
+      paymentStatus,
+      payment,
+      mergedOrderIds: group.map(o => o.id),
+      isGrouped: true,
+    };
+
+    groupedOrders.push(virtualOrder);
+  }
+
+  // Sort overall by createdAt descending to match expectations
+  groupedOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return groupedOrders;
+}
+
+function groupCodPendingOrders(orders: any[], businessDate: string) {
+  const groupedOrders: any[] = [];
+  const groups: Record<string, any[]> = {};
+
+  for (const order of orders) {
+    const key = `${order.customerName.trim().toLowerCase()}_${order.customerPhone.trim()}`;
+    if (!groups[key]) {
+      groups[key] = [];
+    }
+    groups[key].push(order);
+  }
+
+  for (const key of Object.keys(groups)) {
+    const group = groups[key];
+    if (group.length === 1) {
+      groupedOrders.push({
+        ...group[0],
+        mergedOrderIds: [group[0].id],
+        isGrouped: false,
+      });
+      continue;
+    }
+
+    group.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    const primary = group[0];
+
+    const itemMap: Record<string, any> = {};
+    for (const order of group) {
+      for (const item of order.items) {
+        if (!itemMap[item.name]) {
+          itemMap[item.name] = {
+            id: item.id,
+            orderId: primary.id,
+            menuItemId: item.menuItemId,
+            name: item.name,
+            unitPrice: item.unitPrice,
+            quantity: 0,
+            subtotal: 0,
+          };
+        }
+        itemMap[item.name].quantity += item.quantity;
+        itemMap[item.name].subtotal += item.subtotal;
+      }
+    }
+
+    const totalAmount = group.reduce((sum, o) => sum + o.totalAmount, 0);
+
+    let totalOnlinePaidAmount = 0;
+    for (const o of group) {
+      if (o.payment && o.payment.status === 'PAID') {
+        totalOnlinePaidAmount += o.payment.amount;
+      }
+    }
+
+    let orderStatus = primary.orderStatus;
+    const statuses = group.map(o => o.orderStatus);
+    if (statuses.includes('CONFIRMED')) {
+      orderStatus = 'CONFIRMED';
+    } else if (statuses.includes('PREPARING')) {
+      orderStatus = 'PREPARING';
+    } else if (statuses.includes('READY')) {
+      orderStatus = 'READY';
+    } else if (statuses.includes('OUT_FOR_DELIVERY')) {
+      orderStatus = 'OUT_FOR_DELIVERY';
+    }
+
+    let payment = null;
+    if (totalOnlinePaidAmount > 0) {
+      payment = {
+        id: 'virtual-payment-' + primary.id,
+        orderId: primary.id,
+        gateway: 'RAZORPAY',
+        gatewayOrderId: 'virtual-gateway-' + primary.id,
+        amount: totalOnlinePaidAmount,
+        status: 'PAID',
+        createdAt: primary.createdAt,
+        updatedAt: primary.updatedAt,
+      };
+    }
+
+    const virtualOrder = {
+      ...primary,
+      items: Object.values(itemMap),
+      totalAmount,
+      orderStatus,
+      payment,
+      mergedOrderIds: group.map(o => o.id),
+      isGrouped: true,
+    };
+
+    groupedOrders.push(virtualOrder);
+  }
+
+  // Sort overall by createdAt ascending to match expectations
+  groupedOrders.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  return groupedOrders;
+}
+
 export async function getTodayOrdersOwner(req: Request, res: Response, next: NextFunction) {
   try {
     const businessDate = getKolkataBusinessDate();
@@ -413,18 +487,24 @@ export async function getTodayOrdersOwner(req: Request, res: Response, next: Nex
       orderBy: { createdAt: 'desc' },
     });
 
+    const grouped = groupActiveOrders(orders, businessDate);
+
     const ordersWithIndicators = await Promise.all(
-      orders.map(async (order) => {
+      grouped.map(async (order) => {
         const otherOrdersCount = await prisma.order.count({
           where: {
             businessDate,
             customerPhone: order.customerPhone,
-            id: { not: order.id },
+            customerName: {
+              equals: order.customerName,
+              mode: 'insensitive',
+            },
+            id: { notIn: order.mergedOrderIds },
           },
         });
         return {
           ...order,
-          hasOtherOrdersToday: otherOrdersCount > 0,
+          hasOtherOrdersToday: otherOrdersCount > 0 || (order.mergedOrderIds && order.mergedOrderIds.length > 1),
         };
       })
     );
@@ -454,18 +534,24 @@ export async function getCodPendingOrdersOwner(req: Request, res: Response, next
       orderBy: { createdAt: 'asc' },
     });
 
+    const grouped = groupCodPendingOrders(orders, businessDate);
+
     const ordersWithIndicators = await Promise.all(
-      orders.map(async (order) => {
+      grouped.map(async (order) => {
         const otherOrdersCount = await prisma.order.count({
           where: {
             businessDate,
             customerPhone: order.customerPhone,
-            id: { not: order.id },
+            customerName: {
+              equals: order.customerName,
+              mode: 'insensitive',
+            },
+            id: { notIn: order.mergedOrderIds },
           },
         });
         return {
           ...order,
-          hasOtherOrdersToday: otherOrdersCount > 0,
+          hasOtherOrdersToday: otherOrdersCount > 0 || (order.mergedOrderIds && order.mergedOrderIds.length > 1),
         };
       })
     );
@@ -484,46 +570,78 @@ export async function markCodDeliveredOwner(req: Request, res: Response, next: N
     const { id } = req.params;
 
     const result = await prisma.$transaction(async (tx) => {
-      const order = await tx.order.findUnique({
+      const targetOrder = await tx.order.findUnique({
         where: { id },
         include: { payment: true },
       });
 
-      if (!order) {
+      if (!targetOrder) {
         throw new AppError('Order not found', 404);
       }
 
-      if (order.paymentMethod !== 'COD') {
+      if (targetOrder.paymentMethod !== 'COD') {
         throw new AppError('Order is not a Cash on Delivery order', 400);
       }
 
-      if (order.orderStatus === 'DELIVERED') {
-        throw new AppError('Order is already marked delivered', 400);
-      }
+      // Find all active COD orders in the group
+      const groupOrders = await tx.order.findMany({
+        where: {
+          businessDate: targetOrder.businessDate,
+          customerName: targetOrder.customerName,
+          customerPhone: targetOrder.customerPhone,
+          paymentMethod: 'COD',
+          orderStatus: {
+            in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY']
+          }
+        },
+        include: { payment: true },
+      });
 
-      if (order.orderStatus === 'CANCELLED') {
-        throw new AppError('Cannot deliver a cancelled order', 400);
-      }
+      const ordersToUpdate = groupOrders.some(o => o.id === targetOrder.id) ? groupOrders : [targetOrder];
 
-      if (order.payment) {
-        await tx.payment.update({
-          where: { id: order.payment.id },
+      let lastUpdatedOrder = null;
+      for (const order of ordersToUpdate) {
+        if (order.orderStatus === 'DELIVERED') {
+          continue;
+        }
+
+        if (order.orderStatus === 'CANCELLED') {
+          continue;
+        }
+
+        // Set payment record to PAID
+        if (order.payment) {
+          await tx.payment.update({
+            where: { id: order.payment.id },
+            data: {
+              amount: order.totalAmount, // Mark the full amount of this order paid
+              status: 'PAID',
+            },
+          });
+        } else {
+          // Create payment record if it doesn't exist
+          await tx.payment.create({
+            data: {
+              orderId: order.id,
+              gateway: 'COD',
+              gatewayOrderId: 'cod-' + order.id,
+              amount: order.totalAmount,
+              status: 'PAID',
+            }
+          });
+        }
+
+        lastUpdatedOrder = await tx.order.update({
+          where: { id: order.id },
           data: {
-            amount: order.totalAmount,
+            orderStatus: 'DELIVERED',
+            paymentStatus: 'PAID',
+            deliveredAt: new Date(),
           },
         });
       }
 
-      const updated = await tx.order.update({
-        where: { id },
-        data: {
-          orderStatus: 'DELIVERED',
-          paymentStatus: 'PAID',
-          deliveredAt: new Date(),
-        },
-      });
-
-      return updated;
+      return lastUpdatedOrder || targetOrder;
     });
 
     res.json({
@@ -547,50 +665,68 @@ export async function updateOrderStatusOwner(req: Request, res: Response, next: 
     }
 
     const updated = await prisma.$transaction(async (tx) => {
-      const order = await tx.order.findUnique({
+      const targetOrder = await tx.order.findUnique({
         where: { id },
         include: { items: true },
       });
 
-      if (!order) {
+      if (!targetOrder) {
         throw new AppError('Order not found', 404);
       }
 
-      if (order.orderStatus === status) {
-        return order;
-      }
-
-      // Enforce status machine flows
-      if (order.orderStatus === 'DELIVERED' || order.orderStatus === 'CANCELLED') {
-        throw new AppError(`Cannot change status of a completed/cancelled order (${order.orderStatus})`, 400);
-      }
-
-      // If transitioning to CANCELLED, restore stock quantities
-      if (status === 'CANCELLED') {
-        for (const item of order.items) {
-          if (item.menuItemId) {
-            await tx.menuItem.update({
-              where: { id: item.menuItemId },
-              data: {
-                availableQuantity: {
-                  increment: item.quantity,
-                },
-              },
-            });
+      // Find all active orders in the group
+      const groupOrders = await tx.order.findMany({
+        where: {
+          businessDate: targetOrder.businessDate,
+          customerName: targetOrder.customerName,
+          customerPhone: targetOrder.customerPhone,
+          orderStatus: {
+            in: ['PENDING_PAYMENT', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY']
           }
-        }
-      }
-
-      const updatedOrder = await tx.order.update({
-        where: { id },
-        data: {
-          orderStatus: status,
-          ...(status === 'DELIVERED' ? { deliveredAt: new Date(), paymentStatus: 'PAID' } : {}),
-          ...(status === 'CANCELLED' ? { cancelledAt: new Date() } : {}),
         },
+        include: { items: true },
       });
 
-      return updatedOrder;
+      const ordersToUpdate = groupOrders.some(o => o.id === targetOrder.id) ? groupOrders : [targetOrder];
+
+      let lastUpdatedOrder = null;
+      for (const order of ordersToUpdate) {
+        if (order.orderStatus === status) {
+          lastUpdatedOrder = order;
+          continue;
+        }
+
+        if (order.orderStatus === 'DELIVERED' || order.orderStatus === 'CANCELLED') {
+          continue;
+        }
+
+        // If transitioning to CANCELLED, restore stock quantities
+        if (status === 'CANCELLED') {
+          for (const item of order.items) {
+            if (item.menuItemId) {
+              await tx.menuItem.update({
+                where: { id: item.menuItemId },
+                data: {
+                  availableQuantity: {
+                    increment: item.quantity,
+                  },
+                },
+              });
+            }
+          }
+        }
+
+        lastUpdatedOrder = await tx.order.update({
+          where: { id: order.id },
+          data: {
+            orderStatus: status,
+            ...(status === 'DELIVERED' ? { deliveredAt: new Date(), paymentStatus: 'PAID' } : {}),
+            ...(status === 'CANCELLED' ? { cancelledAt: new Date() } : {}),
+          },
+        });
+      }
+
+      return lastUpdatedOrder || targetOrder;
     });
 
     res.json({
@@ -688,3 +824,70 @@ export async function getTodaySalesSummary(req: Request, res: Response, next: Ne
     next(error);
   }
 }
+
+export async function cancelAllOrdersOwner(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { reason } = req.body;
+    const businessDate = getKolkataBusinessDate();
+
+    const activeOrders = await prisma.order.findMany({
+      where: {
+        businessDate,
+        orderStatus: {
+          notIn: ['DELIVERED', 'CANCELLED', 'PAYMENT_FAILED'],
+        },
+      },
+      include: {
+        items: true,
+      },
+    });
+
+    if (activeOrders.length === 0) {
+      res.json({
+        success: true,
+        message: 'No active orders found to cancel today.',
+        count: 0,
+      });
+      return;
+    }
+
+    const cancelledCount = await prisma.$transaction(async (tx) => {
+      for (const order of activeOrders) {
+        // Restore stock quantities
+        for (const item of order.items) {
+          if (item.menuItemId) {
+            await tx.menuItem.update({
+              where: { id: item.menuItemId },
+              data: {
+                availableQuantity: {
+                  increment: item.quantity,
+                },
+              },
+            });
+          }
+        }
+
+        // Update the order status to CANCELLED
+        await tx.order.update({
+          where: { id: order.id },
+          data: {
+            orderStatus: 'CANCELLED',
+            cancelledAt: new Date(),
+            cancellationReason: reason || 'Force cancelled by owner',
+          },
+        });
+      }
+
+      return activeOrders.length;
+    });
+
+    res.json({
+      success: true,
+      message: `Successfully force-cancelled ${cancelledCount} orders.`,
+      count: cancelledCount,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+

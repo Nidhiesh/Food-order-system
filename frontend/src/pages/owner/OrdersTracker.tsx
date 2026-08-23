@@ -60,6 +60,34 @@ export const OrdersTracker: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<boolean>(false);
 
+  // Cancel All Modal state
+  const [showCancelAllModal, setShowCancelAllModal] = useState<boolean>(false);
+  const [cancelAllReason, setCancelAllReason] = useState<string>('');
+  const [cancellingAll, setCancellingAll] = useState<boolean>(false);
+
+  const handleCancelAllOrders = async () => {
+    if (!cancelAllReason.trim()) {
+      alert('Please provide a reason for cancelling all orders.');
+      return;
+    }
+
+    try {
+      setCancellingAll(true);
+      const res = await ownerApi.cancelAllOrders(cancelAllReason.trim());
+      if (res.success) {
+        alert(res.message);
+        setShowCancelAllModal(false);
+        setCancelAllReason('');
+        fetchOrders();
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to cancel all orders.');
+    } finally {
+      setCancellingAll(false);
+    }
+  };
+
   const fetchOrders = async () => {
     try {
       setLoading(true);
@@ -151,9 +179,17 @@ export const OrdersTracker: React.FC = () => {
   return (
     <div className="animate-fade-in flex flex-col gap-6 text-left">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black text-white tracking-tight">Orders Queue</h1>
-        <p className="text-slate-400 text-xs mt-1">Live order dispatch & status management</p>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-black text-white tracking-tight">Orders Queue</h1>
+          <p className="text-slate-400 text-xs mt-1">Live order dispatch & status management</p>
+        </div>
+        <button
+          onClick={() => setShowCancelAllModal(true)}
+          className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+        >
+          Cancel All Orders
+        </button>
       </div>
 
       {/* Filter and Search Bar */}
@@ -433,6 +469,71 @@ export const OrdersTracker: React.FC = () => {
                 <strong>Cancellation Reason:</strong> {selectedOrder.cancellationReason}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* CANCEL ALL ORDERS DIALOG */}
+      {showCancelAllModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900 border border-slate-850 rounded-3xl shadow-2xl p-6 animate-slide-up text-left flex flex-col gap-5">
+            {/* Title / Close */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <h3 className="text-base font-extrabold text-white">Cancel All Orders</h3>
+                <span className="text-[10px] text-slate-500 font-bold">This will cancel all active orders for today</span>
+              </div>
+              <button
+                onClick={() => {
+                  setShowCancelAllModal(false);
+                  setCancelAllReason('');
+                }}
+                className="text-slate-500 hover:text-slate-300 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Input field for reason */}
+            <div className="flex flex-col gap-2">
+              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Reason for cancellation
+              </label>
+              <input
+                type="text"
+                placeholder="Enter cancellation reason (e.g. Shop Closing, Power Cut)..."
+                value={cancelAllReason}
+                onChange={(e) => setCancelAllReason(e.target.value)}
+                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-850 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none text-white placeholder:text-slate-700"
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+              <button
+                onClick={() => {
+                  setShowCancelAllModal(false);
+                  setCancelAllReason('');
+                }}
+                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-slate-400 font-extrabold text-xs rounded-xl border border-slate-850 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCancelAllOrders}
+                disabled={cancellingAll}
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-800 disabled:text-slate-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                {cancellingAll ? (
+                  <>
+                    <Loader className="animate-spin" size={12} />
+                    Cancelling...
+                  </>
+                ) : (
+                  'Confirm Cancel All'
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
