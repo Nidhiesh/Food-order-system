@@ -141,15 +141,16 @@ export const MenuManagement: React.FC = () => {
   };
 
   const toggleTodayItemAvailability = async (item: MenuItem) => {
+    // 1. Instantly flip the state locally (Optimistic Update)
+    setTodayMenu(prev => prev.map(i => i.id === item.id ? { ...i, isAvailable: !i.isAvailable } : i));
+
     try {
-      setUpdatingMenuId(item.id);
+      // 2. Perform API call in background
       await ownerApi.updateTodayMenuItem(item.id, { isAvailable: !item.isAvailable });
-      // update state locally
-      setTodayMenu(prev => prev.map(i => i.id === item.id ? { ...i, isAvailable: !i.isAvailable } : i));
     } catch (err: any) {
+      // 3. Revert on failure
+      setTodayMenu(prev => prev.map(i => i.id === item.id ? { ...i, isAvailable: item.isAvailable } : i));
       alert('Failed to update item availability.');
-    } finally {
-      setUpdatingMenuId(null);
     }
   };
 
