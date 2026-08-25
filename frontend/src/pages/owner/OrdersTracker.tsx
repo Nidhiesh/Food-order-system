@@ -1,12 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ownerApi } from '../../services/api';
 import { useSSE } from '../../hooks/useSSE';
 import { pageCache } from '../../services/pageCache';
 import { 
   Loader, 
   Search, 
-  Filter, 
-  Clock, 
   User, 
   Phone, 
   Building2, 
@@ -14,7 +13,8 @@ import {
   CreditCard,
   Wallet,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  History
 } from 'lucide-react';
 
 interface OrderItem {
@@ -49,6 +49,9 @@ interface Order {
 }
 
 export const OrdersTracker: React.FC = () => {
+  const navigate = useNavigate();
+
+  // Orders state
   const [orders, setOrders] = useState<Order[]>(
     () => pageCache.get<Order[]>('orders:today') ?? []
   );
@@ -57,8 +60,6 @@ export const OrdersTracker: React.FC = () => {
   );
   const [loading, setLoading] = useState<boolean>(!pageCache.has('orders:today'));
   const [error, setError] = useState<string>('');
-
-  // Filtering / Search state
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
@@ -70,29 +71,6 @@ export const OrdersTracker: React.FC = () => {
   const [showCancelAllModal, setShowCancelAllModal] = useState<boolean>(false);
   const [cancelAllReason, setCancelAllReason] = useState<string>('');
   const [cancellingAll, setCancellingAll] = useState<boolean>(false);
-
-  const handleCancelAllOrders = async () => {
-    if (!cancelAllReason.trim()) {
-      alert('Please provide a reason for cancelling all orders.');
-      return;
-    }
-
-    try {
-      setCancellingAll(true);
-      const res = await ownerApi.cancelAllOrders(cancelAllReason.trim());
-      if (res.success) {
-        alert(res.message);
-        setShowCancelAllModal(false);
-        setCancelAllReason('');
-        fetchOrders();
-      }
-    } catch (err: any) {
-      console.error(err);
-      alert(err.response?.data?.message || 'Failed to cancel all orders.');
-    } finally {
-      setCancellingAll(false);
-    }
-  };
 
   const fetchOrders = useCallback(async (showLoading = false) => {
     try {
@@ -127,16 +105,14 @@ export const OrdersTracker: React.FC = () => {
 
   useEffect(() => {
     fetchOrders(true);
-    // 30s fallback polling in case SSE connection drops
     const interval = setInterval(() => fetchOrders(false), 30_000);
     return () => clearInterval(interval);
   }, [fetchOrders]);
 
-  // Filter logic
+  // Live queue filtering
   useEffect(() => {
     let result = [...orders];
 
-    // Status filter
     if (statusFilter === 'ALL') {
       result = result.filter(o => 
         o.orderStatus === 'CONFIRMED' || 
@@ -147,7 +123,6 @@ export const OrdersTracker: React.FC = () => {
       result = result.filter(o => o.orderStatus === 'READY');
     }
 
-    // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(o => 
@@ -164,7 +139,7 @@ export const OrdersTracker: React.FC = () => {
     const previousOrders = [...orders];
     const previousSelectedOrder = selectedOrder;
 
-    // 1. Optimistic UI update
+    // Optimistic UI updates
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, orderStatus: newStatus } : o));
     if (selectedOrder && selectedOrder.id === orderId) {
       setSelectedOrder(prev => prev ? { ...prev, orderStatus: newStatus } : null);
@@ -173,15 +148,36 @@ export const OrdersTracker: React.FC = () => {
     try {
       setUpdatingStatus(true);
       await ownerApi.updateOrderStatus(orderId, newStatus);
-      // Background sync
       fetchOrders(false);
     } catch (err: any) {
-      // Rollback on error
       setOrders(previousOrders);
       setSelectedOrder(previousSelectedOrder);
       alert(err.response?.data?.message || 'Failed to update order status');
     } finally {
       setUpdatingStatus(false);
+    }
+  };
+
+  const handleCancelAllOrders = async () => {
+    if (!cancelAllReason.trim()) {
+      alert('Please provide a reason for cancelling all orders.');
+      return;
+    }
+
+    try {
+      setCancellingAll(true);
+      const res = await ownerApi.cancelAllOrders(cancelAllReason.trim());
+      if (res.success) {
+        alert(res.message);
+        setShowCancelAllModal(false);
+        setCancelAllReason('');
+        fetchOrders();
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to cancel all orders.');
+    } finally {
+      setCancellingAll(false);
     }
   };
 
@@ -274,12 +270,12 @@ export const OrdersTracker: React.FC = () => {
               <thead>
                 <tr className="bg-slate-950/40 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
                   <th className="p-4">Order ID</th>
-                  <th className="p-4">Customer Name</th>
+                  <th className="p-4">Customer Name & Phone</th>
                   <th className="p-4">Order Type</th>
                   <th className="p-4">Amount</th>
                   <th className="p-4">Payment</th>
                   <th className="p-4">Order Status</th>
-                  <th className="p-4 text-right">Details</th>
+                  <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80">
@@ -297,9 +293,23 @@ export const OrdersTracker: React.FC = () => {
                     </td>
                     <td className="p-4 text-slate-200">
                       <span className="font-bold text-sm block">{order.customerName}</span>
-                      <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">
-                        {order.customerPhone} &bull; {order.departmentClass || 'No Department'}
-                      </span>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className="text-[10px] text-slate-400 font-semibold">
+                          {order.customerPhone} &bull; {order.departmentClass || 'No Department'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/owner/student-history?phone=${encodeURIComponent(order.customerPhone)}`);
+                          }}
+                          className="inline-flex items-center gap-1 text-[10px] font-extrabold text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                          title="Search full student history in sidebar"
+                        >
+                          <History size={10} />
+                          History
+                        </button>
+                      </div>
                     </td>
                     <td className="p-4">
                       {order.hasOtherOrdersToday ? (
@@ -408,15 +418,6 @@ export const OrdersTracker: React.FC = () => {
                 <span className="text-white font-bold flex flex-wrap items-center gap-1.5">
                   <User size={12} className="text-slate-400" />
                   {selectedOrder.customerName}
-                  {selectedOrder.hasOtherOrdersToday ? (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase tracking-wider">
-                      Multiple Orders Today
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[8px] font-extrabold bg-slate-800 text-slate-400 border border-slate-700 uppercase tracking-wider">
-                      First Order Today
-                    </span>
-                  )}
                 </span>
               </div>
 
@@ -440,7 +441,7 @@ export const OrdersTracker: React.FC = () => {
             {/* Item list */}
             <div>
               <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider mb-2.5 block">Ordered Items</span>
-              <div className="flex flex-col gap-3 bg-slate-950/20 p-4 border border-slate-800/60 rounded-2xl">
+              <div className="flex flex-col gap-3 bg-slate-950/20 p-4 border border-slate-800/60 rounded-2xl max-h-48 overflow-y-auto">
                 {Object.values(
                   selectedOrder.items.reduce((acc, item) => {
                     if (!acc[item.name]) {
@@ -505,7 +506,6 @@ export const OrdersTracker: React.FC = () => {
       {showCancelAllModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="w-full max-w-md bg-slate-900 border border-slate-850 rounded-3xl shadow-2xl p-6 animate-slide-up text-left flex flex-col gap-5">
-            {/* Title / Close */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
                 <h3 className="text-base font-extrabold text-white">Cancel All Orders</h3>
@@ -522,7 +522,6 @@ export const OrdersTracker: React.FC = () => {
               </button>
             </div>
 
-            {/* Input field for reason */}
             <div className="flex flex-col gap-2">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
                 Reason for cancellation
@@ -536,7 +535,6 @@ export const OrdersTracker: React.FC = () => {
               />
             </div>
 
-            {/* Actions */}
             <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
               <button
                 onClick={() => {

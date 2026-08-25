@@ -529,6 +529,51 @@ export async function getTodayOrdersOwner(req: Request, res: Response, next: Nex
   }
 }
 
+export async function searchOrdersOwner(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { phone, date, status } = req.query;
+
+    // Student phone number is strictly mandatory for student history lookup
+    if (!phone || typeof phone !== 'string' || !phone.trim()) {
+      return res.json({
+        success: true,
+        orders: [],
+      });
+    }
+
+    const trimmedPhone = phone.trim();
+
+    const where: any = {
+      customerPhone: { contains: trimmedPhone },
+    };
+
+    if (date && typeof date === 'string' && date.trim()) {
+      where.businessDate = date.trim();
+    }
+
+    if (status && typeof status === 'string' && status.trim() && status !== 'ALL') {
+      where.orderStatus = status.trim();
+    }
+
+    const orders = await prisma.order.findMany({
+      where,
+      include: {
+        items: true,
+        payment: true,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+    });
+
+    res.json({
+      success: true,
+      orders,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function getCodPendingOrdersOwner(req: Request, res: Response, next: NextFunction) {
   try {
     const businessDate = getKolkataBusinessDate();

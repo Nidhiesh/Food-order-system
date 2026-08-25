@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 
+
 // Layouts
 import { StudentLayout } from './layouts/StudentLayout';
 import { OwnerLayout } from './layouts/OwnerLayout';
@@ -20,12 +21,14 @@ import { Login } from './pages/owner/Login';
 import { Dashboard } from './pages/owner/Dashboard';
 import { MenuManagement } from './pages/owner/MenuManagement';
 import { OrdersTracker } from './pages/owner/OrdersTracker';
+import { StudentHistory } from './pages/owner/StudentHistory';
 import { CodPending } from './pages/owner/CodPending';
 import { SalesSummary } from './pages/owner/SalesSummary';
 import { ShopControl } from './pages/owner/ShopControl';
 
 function App() {
   return (
+
     <AuthProvider>
       <CartProvider>
         <BrowserRouter>
@@ -49,6 +52,7 @@ function App() {
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="menu" element={<MenuManagement />} />
               <Route path="orders" element={<OrdersTracker />} />
+              <Route path="student-history" element={<StudentHistory />} />
               <Route path="orders/cod-pending" element={<CodPending />} />
               <Route path="sales" element={<SalesSummary />} />
               <Route path="shop" element={<ShopControl />} />
@@ -60,6 +64,7 @@ function App() {
         </BrowserRouter>
       </CartProvider>
     </AuthProvider>
+
   );
 }
 

@@ -5,6 +5,7 @@ import {
   cancelOrder,
   getOrderHistory,
   getTodayOrdersOwner,
+  searchOrdersOwner,
   getCodPendingOrdersOwner,
   markCodDeliveredOwner,
   updateOrderStatusOwner,
@@ -24,6 +25,7 @@ router.post('/:publicOrderId/cancel', cancelOrder);
 
 // Protected owner routes
 router.get('/owner/today', protectOwner, getTodayOrdersOwner);
+router.get('/owner/search', protectOwner, searchOrdersOwner);
 router.get('/owner/cod-pending', protectOwner, getCodPendingOrdersOwner);
 router.patch('/owner/:id/deliver-cod', protectOwner, markCodDeliveredOwner);
 router.patch('/owner/:id/status', protectOwner, updateOrderStatusOwner);

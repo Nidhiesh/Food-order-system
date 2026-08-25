@@ -129,6 +129,11 @@ export const ownerApi = {
   },
 
   // Orders Management
+  searchOrders: async (params: { phone?: string; date?: string; query?: string; status?: string }) => {
+    const res = await api.get('/orders/owner/search', { params });
+    return res.data;
+  },
+
   getTodayOrders: async () => {
     const res = await api.get('/orders/owner/today');
     return res.data;
