@@ -521,10 +521,6 @@ export const Dashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-slate-400">
-            <span>Aggregated local time</span>
-            <span>Asia/Kolkata</span>
-          </div>
         </div>
       </div>
     </div>
