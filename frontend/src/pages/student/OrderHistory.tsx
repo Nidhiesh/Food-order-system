@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { studentApi } from '../../services/api';
 import { useSSE } from '../../hooks/useSSE';
 import { pageCache } from '../../services/pageCache';
@@ -60,6 +60,8 @@ const getYesterdayStr = () => {
 
 export const OrderHistory: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const [orders, setOrders] = useState<OrderSummary[]>(
     () => pageCache.get<OrderSummary[]>('student:history') ?? []
   );
@@ -69,8 +71,34 @@ export const OrderHistory: React.FC = () => {
   const todayStr = useMemo(() => getTodayStr(), []);
   const yesterdayStr = useMemo(() => getYesterdayStr(), []);
   
-  // Selected date defaults to Today
-  const [selectedDate, setSelectedDate] = useState<string>(() => getTodayStr());
+  // Selected date: prioritize URL search param, then sessionStorage, then fallback to Today
+  const [selectedDate, setSelectedDateState] = useState<string>(() => {
+    const paramDate = searchParams.get('date');
+    if (paramDate) return paramDate;
+    const savedDate = sessionStorage.getItem('student_selected_order_date');
+    if (savedDate) return savedDate;
+    return getTodayStr();
+  });
+
+  const setSelectedDate = useCallback((newDate: string) => {
+    setSelectedDateState(newDate);
+    if (newDate) {
+      sessionStorage.setItem('student_selected_order_date', newDate);
+      setSearchParams({ date: newDate }, { replace: true });
+    } else {
+      sessionStorage.removeItem('student_selected_order_date');
+      setSearchParams({}, { replace: true });
+    }
+  }, [setSearchParams]);
+
+  // Sync if URL search params change
+  useEffect(() => {
+    const paramDate = searchParams.get('date');
+    if (paramDate && paramDate !== selectedDate) {
+      setSelectedDateState(paramDate);
+      sessionStorage.setItem('student_selected_order_date', paramDate);
+    }
+  }, [searchParams, selectedDate]);
 
   const fetchHistory = useCallback(async (showLoading = false) => {
     const existing = localStorage.getItem('college_food_order_tokens');
@@ -421,7 +449,7 @@ export const OrderHistory: React.FC = () => {
                 key={order.id}
                 onClick={() =>
                   navigate(`/order/${order.publicOrderId}`, {
-                    state: { token: order.trackingToken },
+                    state: { token: order.trackingToken, returnDate: selectedDate },
                   })
                 }
                 className="bg-white border border-slate-100 rounded-3xl p-5 shadow-premium hover:border-brand-200 hover:shadow-md transition-all cursor-pointer flex justify-between items-center group"

@@ -178,14 +178,24 @@ export const OrderDetails: React.FC = () => {
 
   const currentStepIndex = getStepIndex(order.orderStatus);
 
+  const handleBack = () => {
+    const returnDate = (location.state as any)?.returnDate || sessionStorage.getItem('student_selected_order_date');
+    if (returnDate) {
+      navigate(`/orders?date=${encodeURIComponent(returnDate)}`);
+    } else {
+      navigate('/orders');
+    }
+  };
+
   return (
     <div className="animate-slide-up">
       {/* Back button header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/orders')}
+            onClick={handleBack}
             className="w-10 h-10 rounded-2xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
+            title="Back to order history"
           >
             <ArrowLeft size={18} />
           </button>
