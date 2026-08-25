@@ -461,35 +461,90 @@ export const OrdersTracker: React.FC = () => {
                   </div>
                 ))}
 
-                <div className="border-t border-slate-200 mt-2 pt-2 flex flex-col gap-1">
+                <div className="border-t border-slate-200 dark:border-slate-800 mt-2 pt-2 flex flex-col gap-1.5">
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-500 font-semibold">Total Invoice</span>
-                    <span className="text-brand-600 font-black text-sm">₹{selectedOrder.totalAmount}</span>
+                    <span className="text-slate-500 dark:text-slate-400 font-semibold">Total Invoice</span>
+                    <span className="text-brand-600 dark:text-brand-400 font-black text-sm">₹{selectedOrder.totalAmount}</span>
                   </div>
-                  {selectedOrder.payment && selectedOrder.payment.status === 'PAID' && selectedOrder.paymentMethod === 'COD' && (
-                    <>
-                      <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                        <span>Paid Online</span>
-                        <span>₹{selectedOrder.payment.amount}</span>
+
+                  {/* Proper Payment Method & Status Breakdown */}
+                  {selectedOrder.orderStatus === 'CANCELLED' ? (
+                    <div className="flex justify-between items-center text-[10px] text-rose-600 dark:text-rose-400 font-bold uppercase tracking-wider bg-rose-50 dark:bg-rose-500/10 px-2.5 py-1.5 rounded-lg border border-rose-200/60 dark:border-rose-500/20">
+                      <span className="flex items-center gap-1.5">
+                        <AlertTriangle size={12} className="text-rose-500" />
+                        {selectedOrder.paymentMethod === 'ONLINE' && selectedOrder.paymentStatus === 'PAID'
+                          ? 'Order Cancelled (Payment Refunded)'
+                          : 'Order Cancelled (No Cash Due)'}
+                      </span>
+                      <span className="line-through text-slate-400 dark:text-slate-500">₹{selectedOrder.totalAmount}</span>
+                    </div>
+                  ) : selectedOrder.paymentMethod === 'COD' ? (
+                    selectedOrder.paymentStatus === 'PAID' || selectedOrder.orderStatus === 'DELIVERED' ? (
+                      <div className="flex justify-between items-center text-[10px] text-emerald-600 dark:text-emerald-400 font-bold uppercase tracking-wider bg-emerald-50 dark:bg-emerald-500/10 px-2 py-1 rounded-lg">
+                        <span className="flex items-center gap-1.5">
+                          <Wallet size={12} className="text-emerald-600 dark:text-emerald-400" />
+                          Cash Paid (COD)
+                        </span>
+                        <span>₹{selectedOrder.totalAmount}</span>
                       </div>
-                      <div className="flex justify-between items-center text-[10px] text-emerald-600 font-bold uppercase tracking-wider">
-                        <span>Pending Cash</span>
-                        <span>₹{Math.max(0, selectedOrder.totalAmount - selectedOrder.payment.amount)}</span>
+                    ) : (
+                      <div className="flex justify-between items-center text-[10px] text-amber-600 dark:text-amber-400 font-bold uppercase tracking-wider bg-amber-50 dark:bg-amber-500/10 px-2 py-1 rounded-lg">
+                        <span className="flex items-center gap-1.5">
+                          <Wallet size={12} className="text-amber-600 dark:text-amber-400" />
+                          Cash to Collect (COD)
+                        </span>
+                        <span>₹{selectedOrder.totalAmount}</span>
                       </div>
-                    </>
+                    )
+                  ) : (
+                    selectedOrder.paymentStatus === 'PAID' ? (
+                      <div className="flex justify-between items-center text-[10px] text-sky-600 dark:text-sky-400 font-bold uppercase tracking-wider bg-sky-50 dark:bg-sky-500/10 px-2 py-1 rounded-lg">
+                        <span className="flex items-center gap-1.5">
+                          <CreditCard size={12} className="text-sky-600 dark:text-sky-400" />
+                          Paid Online (Razorpay)
+                        </span>
+                        <span>₹{selectedOrder.totalAmount}</span>
+                      </div>
+                    ) : (
+                      <div className="flex justify-between items-center text-[10px] text-rose-500 dark:text-rose-400 font-bold uppercase tracking-wider bg-rose-50 dark:bg-rose-500/10 px-2 py-1 rounded-lg">
+                        <span className="flex items-center gap-1.5">
+                          <CreditCard size={12} className="text-rose-500 dark:text-rose-400" />
+                          Online Payment Pending
+                        </span>
+                        <span>₹{selectedOrder.totalAmount}</span>
+                      </div>
+                    )
                   )}
                 </div>
               </div>
             </div>
 
             {/* Status logs */}
-            <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-slate-500 font-semibold pt-2 border-t border-slate-100 dark:border-slate-800">
               <span className="flex items-center gap-1">
                 <Calendar size={10} />
                 Order Date: {selectedOrder.businessDate}
               </span>
-              <span>
-                Method: {selectedOrder.paymentMethod} ({selectedOrder.paymentStatus})
+              <span className="flex items-center gap-1 font-bold">
+                {selectedOrder.paymentMethod === 'ONLINE' ? (
+                  <CreditCard size={12} className="text-sky-500" />
+                ) : (
+                  <Wallet size={12} className="text-amber-500" />
+                )}
+                <span>Method: {selectedOrder.paymentMethod === 'COD' ? 'Cash on Delivery (COD)' : 'Online Payment'}</span>
+                {selectedOrder.orderStatus === 'CANCELLED' ? (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-500/20 font-bold">
+                    CANCELLED
+                  </span>
+                ) : (
+                  <span className={`px-1.5 py-0.5 rounded text-[9px] ${
+                    selectedOrder.paymentStatus === 'PAID' || (selectedOrder.paymentMethod === 'COD' && selectedOrder.orderStatus === 'DELIVERED')
+                      ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
+                      : 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                  }`}>
+                    {selectedOrder.paymentStatus === 'PAID' || (selectedOrder.paymentMethod === 'COD' && selectedOrder.orderStatus === 'DELIVERED') ? 'PAID' : 'PENDING'}
+                  </span>
+                )}
               </span>
             </div>
 

@@ -209,7 +209,11 @@ export const OrderDetails: React.FC = () => {
         <div className="flex items-center justify-between mb-6">
           <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Order Status</span>
           <div className="flex items-center gap-2">
-            {order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING' ? (
+            {order.orderStatus === 'CANCELLED' ? (
+              <span className="px-3 py-1 rounded-full text-xs font-black uppercase border border-rose-200 bg-rose-50 text-rose-600">
+                Cancelled
+              </span>
+            ) : order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING' ? (
               <span className="px-3 py-1 rounded-full text-xs font-black uppercase border border-amber-200 bg-amber-100/60 text-amber-700 animate-pulse">
                 Payment Pending
               </span>
@@ -312,21 +316,33 @@ export const OrderDetails: React.FC = () => {
 
         <div className="flex items-center justify-between text-sm font-semibold text-slate-600 mb-2">
           <span>Payment Method</span>
-          <span className="text-slate-900 font-bold">{order.paymentMethod}</span>
+          <span className="text-slate-900 font-bold">
+            {order.paymentMethod === 'COD' ? 'Cash on Delivery (COD)' : 'Online Payment (Razorpay)'}
+          </span>
         </div>
 
         <div className="flex items-center justify-between text-sm font-semibold text-slate-600 pb-4 border-b border-slate-50 mb-4">
           <span>Payment Status</span>
           <span className={`font-extrabold uppercase text-xs ${
-            order.paymentStatus === 'PAID' ? 'text-emerald-500' : 'text-slate-400'
+            order.orderStatus === 'CANCELLED'
+              ? 'text-rose-500 font-black'
+              : order.paymentStatus === 'PAID'
+              ? 'text-emerald-500'
+              : 'text-amber-500'
           }`}>
-            {order.paymentStatus}
+            {order.orderStatus === 'CANCELLED'
+              ? (order.paymentMethod === 'ONLINE' && order.paymentStatus === 'PAID' ? 'REFUNDED' : 'CANCELLED (VOID)')
+              : order.paymentStatus}
           </span>
         </div>
 
         <div className="flex items-center justify-between">
-          <span className="font-extrabold text-slate-900 text-sm">Total Paid</span>
-          <span className="text-base font-black text-brand-700">₹{order.totalAmount}</span>
+          <span className="font-extrabold text-slate-900 text-sm">
+            {order.orderStatus === 'CANCELLED' ? 'Total Amount' : (order.paymentStatus === 'PAID' ? 'Total Paid' : 'Total Amount Due')}
+          </span>
+          <span className={`text-base font-black ${order.orderStatus === 'CANCELLED' ? 'text-slate-400 line-through' : 'text-brand-700'}`}>
+            ₹{order.totalAmount}
+          </span>
         </div>
       </div>
 

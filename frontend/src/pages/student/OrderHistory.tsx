@@ -446,11 +446,17 @@ export const OrderHistory: React.FC = () => {
                   )}
 
                   <div className="flex items-center gap-2">
-                    <span className="font-black text-brand-700 text-sm">₹{order.totalAmount}</span>
+                    <span className={`font-black text-sm ${order.orderStatus === 'CANCELLED' ? 'text-slate-400 line-through' : 'text-brand-700'}`}>
+                      ₹{order.totalAmount}
+                    </span>
                     <span className="text-[10px] text-slate-400 font-semibold">
-                      {order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING' ? (
+                      {order.orderStatus === 'CANCELLED' ? (
+                        <span className="text-rose-500 font-extrabold uppercase text-[9px] tracking-wider bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200/50">
+                          {order.paymentMethod === 'ONLINE' && order.paymentStatus === 'PAID' ? 'Refunded' : 'Cancelled'}
+                        </span>
+                      ) : order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING' ? (
                         <span className="text-amber-600 font-extrabold uppercase text-[9px] tracking-wider bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/50">
-                          Payment Pending
+                          Cash on Delivery
                         </span>
                       ) : (
                         `(${order.paymentMethod})`
