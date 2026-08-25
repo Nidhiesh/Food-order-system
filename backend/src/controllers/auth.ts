@@ -47,6 +47,7 @@ export async function login(req: Request, res: Response, next: NextFunction) {
     res.json({
       success: true,
       message: 'Login successful',
+      token,
       owner: {
         id: owner.id,
         email: owner.email,

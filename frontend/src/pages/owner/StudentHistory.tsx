@@ -194,11 +194,11 @@ export const StudentHistory: React.FC = () => {
       {/* Search Form Card */}
       <form 
         onSubmit={(e) => handleSearch(e)}
-        className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col gap-5"
+        className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm flex flex-col gap-5"
       >
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <span className="text-sm font-black text-white flex items-center gap-2">
-            <Search size={16} className="text-brand-500" />
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <span className="text-sm font-black text-slate-900 flex items-center gap-2">
+            <Search size={16} className="text-brand-600" />
             Search Filter
           </span>
           {(historyPhone || historyDate) && (
@@ -212,7 +212,7 @@ export const StudentHistory: React.FC = () => {
                 setHistoryError('');
                 setSearchParams({});
               }}
-              className="text-xs font-bold text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
+              className="text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 cursor-pointer"
             >
               <RotateCcw size={12} />
               Reset Fields
@@ -224,11 +224,11 @@ export const StudentHistory: React.FC = () => {
           {/* Student Phone Number Field (Mandatory) */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <Phone size={13} className="text-brand-500" />
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Phone size={13} className="text-brand-600" />
                 Student Phone Number
               </label>
-              <span className="text-[9px] font-black text-rose-400 bg-rose-500/10 border border-rose-500/20 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
+              <span className="text-[9px] font-black text-rose-600 bg-rose-50 border border-rose-200/60 px-1.5 py-0.5 rounded-md uppercase tracking-wider">
                 Mandatory
               </span>
             </div>
@@ -248,7 +248,7 @@ export const StudentHistory: React.FC = () => {
                     setSearchParams({});
                   }
                 }}
-                className="w-full px-4 py-2.5 bg-slate-950 border border-slate-850 focus:border-brand-500 rounded-2xl text-xs font-semibold text-white outline-none placeholder:text-slate-700 transition-colors"
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-brand-500 focus:bg-white rounded-2xl text-xs font-semibold text-slate-900 outline-none placeholder:text-slate-400 transition-colors"
               />
               {historyPhone && (
                 <button
@@ -260,7 +260,7 @@ export const StudentHistory: React.FC = () => {
                     setHistoryError('');
                     setSearchParams({});
                   }}
-                  className="absolute right-3 text-slate-500 hover:text-slate-300 p-1 cursor-pointer"
+                  className="absolute right-3 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                 >
                   <X size={14} />
                 </button>
@@ -271,15 +271,15 @@ export const StudentHistory: React.FC = () => {
           {/* Date Filter (Optional) */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                <Calendar size={13} className="text-brand-500" />
+              <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Calendar size={13} className="text-brand-600" />
                 Filter by Date (Optional)
               </label>
               {historyDate && (
                 <button
                   type="button"
                   onClick={() => setHistoryDate('')}
-                  className="text-[10px] font-bold text-brand-400 hover:text-brand-300 cursor-pointer"
+                  className="text-[10px] font-bold text-brand-600 hover:text-brand-700 cursor-pointer"
                 >
                   All Dates
                 </button>
@@ -294,15 +294,14 @@ export const StudentHistory: React.FC = () => {
                 max={todayStr}
                 value={historyDate}
                 onChange={(e) => setHistoryDate(e.target.value)}
-                style={{ colorScheme: 'dark' }}
-                className="w-full pl-4 pr-10 py-2.5 bg-slate-950 border border-slate-800 focus:border-brand-500 rounded-2xl text-xs font-semibold text-white outline-none transition-colors cursor-pointer"
+                className="w-full pl-4 pr-10 py-2.5 bg-slate-50 border border-slate-200 focus:border-brand-500 focus:bg-white rounded-2xl text-xs font-semibold text-slate-900 outline-none transition-colors cursor-pointer"
               />
 
               {historyDate && (
                 <button
                   type="button"
                   onClick={() => setHistoryDate('')}
-                  className="absolute right-3 text-slate-500 hover:text-slate-300 p-1 cursor-pointer"
+                  className="absolute right-3 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                   title="Clear date filter"
                 >
                   <X size={14} />
@@ -312,8 +311,8 @@ export const StudentHistory: React.FC = () => {
 
             {/* Formatted Date Feedback */}
             {historyDate && (
-              <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400 px-1 pt-0.5">
-                <span>Selected Date: <strong className="text-brand-400">{formatDisplayDate(historyDate)}</strong></span>
+              <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 px-1 pt-0.5">
+                <span>Selected Date: <strong className="text-brand-600">{formatDisplayDate(historyDate)}</strong></span>
               </div>
             )}
 
@@ -325,7 +324,7 @@ export const StudentHistory: React.FC = () => {
                 className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer text-center ${
                   historyDate === ''
                     ? 'bg-brand-600 text-white shadow-sm'
-                    : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-850'
+                    : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-100'
                 }`}
               >
                 All Dates
@@ -337,7 +336,7 @@ export const StudentHistory: React.FC = () => {
                 className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer text-center ${
                   historyDate === todayStr
                     ? 'bg-brand-600 text-white shadow-sm'
-                    : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-850'
+                    : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-100'
                 }`}
               >
                 Today
@@ -349,7 +348,7 @@ export const StudentHistory: React.FC = () => {
                 className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold transition-all cursor-pointer text-center ${
                   historyDate === yesterdayStr
                     ? 'bg-brand-600 text-white shadow-sm'
-                    : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-850'
+                    : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-100'
                 }`}
               >
                 Yesterday
@@ -363,7 +362,7 @@ export const StudentHistory: React.FC = () => {
           <button
             type="submit"
             disabled={searchingHistory || !historyPhone.trim()}
-            className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-800 disabled:text-slate-600 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-brand-500/20 transition-all cursor-pointer flex items-center gap-2"
+            className="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-extrabold text-xs rounded-xl shadow-md shadow-brand-500/20 transition-all cursor-pointer flex items-center gap-2"
           >
             {searchingHistory ? (
               <>
@@ -383,20 +382,20 @@ export const StudentHistory: React.FC = () => {
       {/* Results View */}
       {searchingHistory ? (
         <div className="flex flex-col items-center justify-center min-h-[25vh] text-slate-400">
-          <Loader className="animate-spin mb-3" size={24} />
+          <Loader className="animate-spin mb-3 stroke-[1.5]" size={24} />
           <span className="text-xs font-semibold">Searching order database...</span>
         </div>
       ) : historyError ? (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-xs flex items-center gap-2">
-          <AlertTriangle size={16} />
+        <div className="p-4 bg-rose-50 border border-rose-200/60 text-rose-600 rounded-2xl text-xs flex items-center gap-2">
+          <AlertTriangle size={16} className="text-rose-500" />
           <span>{historyError}</span>
         </div>
       ) : hasSearched && historyPhone.trim() && historyOrders.length === 0 ? (
-        <div className="text-center py-16 bg-slate-900 border border-slate-800 rounded-3xl p-6">
-          <div className="w-12 h-12 rounded-2xl bg-slate-800/80 flex items-center justify-center text-slate-500 mx-auto mb-3">
+        <div className="text-center py-16 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 mx-auto mb-3">
             <Search size={22} />
           </div>
-          <p className="text-sm font-extrabold text-white mb-1">No Orders Found</p>
+          <p className="text-sm font-extrabold text-slate-900 mb-1">No Orders Found</p>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
             No orders were found for student phone <strong>{historyPhone}</strong>{' '}
             {historyDate ? `on ${formatDisplayDate(historyDate)}` : 'across all dates'}.
@@ -405,13 +404,13 @@ export const StudentHistory: React.FC = () => {
       ) : hasSearched && historyPhone.trim() && historyOrders.length > 0 ? (
         <div className="flex flex-col gap-4">
           {/* Summary Ribbon */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3">
+          <div className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center justify-between flex-wrap gap-3 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-brand-500/10 text-brand-400 flex items-center justify-center font-black text-sm">
+              <div className="w-9 h-9 rounded-xl bg-brand-50 text-brand-600 flex items-center justify-center font-black text-sm">
                 {historyOrders.length}
               </div>
               <div>
-                <span className="font-extrabold text-xs text-white block">
+                <span className="font-extrabold text-xs text-slate-900 block">
                   Found {historyOrders.length} order{historyOrders.length !== 1 ? 's' : ''} for {historyOrders[0]?.customerName || 'Student'}
                 </span>
                 <span className="text-[10px] text-slate-400 font-semibold">
@@ -422,18 +421,18 @@ export const StudentHistory: React.FC = () => {
 
             <div className="text-right">
               <span className="text-[10px] text-slate-400 uppercase font-bold block">Total Amount Spent</span>
-              <span className="font-black text-brand-400 text-sm">
+              <span className="font-black text-brand-600 text-sm">
                 ₹{historyOrders.reduce((sum, o) => sum + o.totalAmount, 0)}
               </span>
             </div>
           </div>
 
           {/* Orders Table */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+          <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
             <div className="overflow-x-auto">
-              <table className="w-full text-slate-300 text-left border-collapse">
+              <table className="w-full text-slate-700 text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-950/40 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
+                  <tr className="bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-wider border-b border-slate-100">
                     <th className="p-4">Order ID & Date</th>
                     <th className="p-4">Student Details</th>
                     <th className="p-4">Items Ordered</th>
@@ -443,7 +442,7 @@ export const StudentHistory: React.FC = () => {
                     <th className="p-4 text-right">Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/80">
+                <tbody className="divide-y divide-slate-100">
                   {historyOrders.map((order) => {
                     const dateStr = new Date(order.createdAt).toLocaleDateString('en-IN', {
                       day: 'numeric',
@@ -462,33 +461,33 @@ export const StudentHistory: React.FC = () => {
                       <tr 
                         key={order.id} 
                         onClick={() => setSelectedOrder(order)}
-                        className="hover:bg-slate-800/20 transition-colors cursor-pointer"
+                        className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                       >
-                        <td className="p-4 font-bold text-white text-sm">
+                        <td className="p-4 font-bold text-slate-900 text-sm">
                           {order.publicOrderId}
-                          <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">
+                          <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">
                             {dateStr}
                           </span>
                         </td>
-                        <td className="p-4 text-slate-200">
+                        <td className="p-4 text-slate-800">
                           <span className="font-bold text-sm block">{order.customerName}</span>
-                          <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">
+                          <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">
                             {order.customerPhone} &bull; {order.departmentClass || 'No Department'}
                           </span>
                         </td>
-                        <td className="p-4 text-slate-300 text-xs max-w-[200px] truncate">
+                        <td className="p-4 text-slate-600 text-xs max-w-[200px] truncate">
                           {itemsSummary}
                         </td>
-                        <td className="p-4 font-extrabold text-white text-sm">₹{order.totalAmount}</td>
+                        <td className="p-4 font-extrabold text-slate-900 text-sm">₹{order.totalAmount}</td>
                         <td className="p-4">
                           <div className="flex items-center gap-1.5">
                             {order.paymentMethod === 'ONLINE' ? (
-                              <CreditCard size={14} className="text-sky-400" />
+                              <CreditCard size={14} className="text-sky-500" />
                             ) : (
-                              <Wallet size={14} className="text-amber-400" />
+                              <Wallet size={14} className="text-amber-500" />
                             )}
                             <span className={`text-[10px] font-extrabold uppercase ${
-                              order.paymentStatus === 'PAID' ? 'text-emerald-400' : 'text-slate-500'
+                              order.paymentStatus === 'PAID' ? 'text-emerald-600' : 'text-slate-400'
                             }`}>
                               {order.paymentStatus}
                             </span>
@@ -505,7 +504,7 @@ export const StudentHistory: React.FC = () => {
                               e.stopPropagation();
                               setSelectedOrder(order);
                             }}
-                            className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-extrabold text-[10px] px-3 py-1.5 rounded-xl cursor-pointer transition-all"
+                            className="bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 font-extrabold text-[10px] px-3 py-1.5 rounded-xl cursor-pointer transition-all"
                           >
                             View Details
                           </button>
@@ -519,11 +518,11 @@ export const StudentHistory: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="text-center py-16 bg-slate-900 border border-slate-800 rounded-3xl p-6">
-          <div className="w-12 h-12 rounded-2xl bg-slate-800/80 flex items-center justify-center text-slate-500 mx-auto mb-3">
+        <div className="text-center py-16 bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 mx-auto mb-3">
             <Phone size={22} />
           </div>
-          <p className="text-sm font-extrabold text-white mb-1">Search Student Orders</p>
+          <p className="text-sm font-extrabold text-slate-900 mb-1">Search Student Orders</p>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
             Enter a student's phone number above (mandatory) and optionally filter by date to retrieve and view their complete order history.
           </p>
@@ -532,23 +531,23 @@ export const StudentHistory: React.FC = () => {
 
       {/* Order Details Dialog */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-850 rounded-3xl shadow-2xl p-6 animate-slide-up text-left flex flex-col gap-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl shadow-2xl p-6 animate-slide-up text-left flex flex-col gap-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-base font-extrabold text-white">Order Details</h3>
-                <span className="text-[10px] text-slate-500 font-bold">{selectedOrder.publicOrderId}</span>
+                <h3 className="text-base font-extrabold text-slate-900">Order Details</h3>
+                <span className="text-[10px] text-slate-400 font-bold">{selectedOrder.publicOrderId}</span>
               </div>
               <button
                 onClick={() => setSelectedOrder(null)}
-                className="text-slate-500 hover:text-slate-300 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
             {/* Stepper Status dropdown */}
-            <div className="p-4 bg-slate-950/40 border border-slate-800 rounded-2xl">
+            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">
                 Update Order Stage
               </label>
@@ -557,7 +556,7 @@ export const StudentHistory: React.FC = () => {
                 value={selectedOrder.orderStatus}
                 onChange={(e) => handleUpdateStatus(selectedOrder.id, e.target.value)}
                 disabled={updatingStatus || selectedOrder.orderStatus === 'DELIVERED' || selectedOrder.orderStatus === 'CANCELLED'}
-                className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs font-bold px-3 py-2.5 rounded-xl outline-none focus:border-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-white border border-slate-200 text-slate-800 text-xs font-bold px-3 py-2.5 rounded-xl outline-none focus:border-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {allStatuses.map(status => (
                   <option key={status} value={status}>
@@ -570,24 +569,24 @@ export const StudentHistory: React.FC = () => {
             {/* Customer information */}
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div className="flex flex-col gap-1">
-                <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider">Customer</span>
-                <span className="text-white font-bold flex flex-wrap items-center gap-1.5">
+                <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Customer</span>
+                <span className="text-slate-900 font-bold flex flex-wrap items-center gap-1.5">
                   <User size={12} className="text-slate-400" />
                   {selectedOrder.customerName}
                 </span>
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider">Phone</span>
-                <span className="text-white font-bold flex items-center gap-1">
+                <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Phone</span>
+                <span className="text-slate-900 font-bold flex items-center gap-1">
                   <Phone size={12} className="text-slate-400" />
                   {selectedOrder.customerPhone}
                 </span>
               </div>
 
               <div className="flex flex-col gap-1 col-span-2">
-                <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider">Department / Class</span>
-                <span className="text-white font-bold flex items-center gap-1">
+                <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Department / Class</span>
+                <span className="text-slate-900 font-bold flex items-center gap-1">
                   <Building2 size={12} className="text-slate-400" />
                   {selectedOrder.departmentClass || 'No Department'}
                 </span>
@@ -596,8 +595,8 @@ export const StudentHistory: React.FC = () => {
 
             {/* Item list */}
             <div>
-              <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider mb-2.5 block">Ordered Items</span>
-              <div className="flex flex-col gap-3 bg-slate-950/20 p-4 border border-slate-800/60 rounded-2xl max-h-48 overflow-y-auto">
+              <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider mb-2.5 block">Ordered Items</span>
+              <div className="flex flex-col gap-3 bg-slate-50 p-4 border border-slate-100 rounded-2xl max-h-48 overflow-y-auto">
                 {Object.values(
                   selectedOrder.items.reduce((acc, item) => {
                     if (!acc[item.name]) {
@@ -609,26 +608,26 @@ export const StudentHistory: React.FC = () => {
                   }, {} as Record<string, { name: string; quantity: number; subtotal: number }>)
                 ).map((item, idx) => (
                   <div key={idx} className="flex justify-between items-center text-xs">
-                    <div className="text-slate-200 font-bold">
+                    <div className="text-slate-800 font-bold">
                       {item.name}
-                      <span className="text-slate-500 font-semibold ml-1.5">× {item.quantity}</span>
+                      <span className="text-slate-400 font-semibold ml-1.5">× {item.quantity}</span>
                     </div>
-                    <span className="text-white font-black">₹{item.subtotal}</span>
+                    <span className="text-slate-900 font-black">₹{item.subtotal}</span>
                   </div>
                 ))}
 
-                <div className="border-t border-slate-800 mt-2 pt-2 flex flex-col gap-1">
+                <div className="border-t border-slate-200 mt-2 pt-2 flex flex-col gap-1">
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-400 font-semibold">Total Invoice</span>
-                    <span className="text-brand-400 font-black text-sm">₹{selectedOrder.totalAmount}</span>
+                    <span className="text-slate-500 font-semibold">Total Invoice</span>
+                    <span className="text-brand-600 font-black text-sm">₹{selectedOrder.totalAmount}</span>
                   </div>
                   {selectedOrder.payment && selectedOrder.payment.status === 'PAID' && selectedOrder.paymentMethod === 'COD' && (
                     <>
-                      <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                      <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                         <span>Paid Online</span>
                         <span>₹{selectedOrder.payment.amount}</span>
                       </div>
-                      <div className="flex justify-between items-center text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+                      <div className="flex justify-between items-center text-[10px] text-emerald-600 font-bold uppercase tracking-wider">
                         <span>Pending Cash</span>
                         <span>₹{Math.max(0, selectedOrder.totalAmount - selectedOrder.payment.amount)}</span>
                       </div>
@@ -639,7 +638,7 @@ export const StudentHistory: React.FC = () => {
             </div>
 
             {/* Status logs */}
-            <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold pt-2 border-t border-slate-100">
               <span className="flex items-center gap-1">
                 <Calendar size={10} />
                 Order Date: {selectedOrder.businessDate}
@@ -650,7 +649,7 @@ export const StudentHistory: React.FC = () => {
             </div>
 
             {selectedOrder.cancellationReason && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-[11px] text-rose-400 leading-snug">
+              <div className="p-3 bg-rose-50 border border-rose-200/60 rounded-xl text-[11px] text-rose-600 leading-snug">
                 <strong>Cancellation Reason:</strong> {selectedOrder.cancellationReason}
               </div>
             )}

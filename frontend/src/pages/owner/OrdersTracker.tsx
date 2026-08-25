@@ -205,8 +205,8 @@ export const OrdersTracker: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Orders Queue</h1>
-          <p className="text-slate-400 text-xs mt-1">Live order dispatch & status management</p>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Orders Queue</h1>
+          <p className="text-slate-500 text-xs mt-1">Live order dispatch & status management</p>
         </div>
         <button
           onClick={() => setShowCancelAllModal(true)}
@@ -217,16 +217,16 @@ export const OrdersTracker: React.FC = () => {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-slate-900 border border-slate-800 rounded-3xl p-4">
+      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white border border-slate-100 rounded-3xl p-4 shadow-sm">
         {/* Search */}
         <div className="relative w-full md:w-80">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" />
+          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
             placeholder="Search by ID, name, or phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 bg-slate-950 border border-slate-800 focus:border-brand-500 rounded-2xl text-xs font-semibold outline-none text-white placeholder:text-slate-600"
+            className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-brand-500 focus:bg-white rounded-2xl text-xs font-semibold outline-none text-slate-900 placeholder:text-slate-400 transition-colors"
           />
         </div>
 
@@ -238,8 +238,8 @@ export const OrdersTracker: React.FC = () => {
               onClick={() => setStatusFilter(filter)}
               className={`px-3.5 py-2 rounded-xl text-[10px] font-extrabold uppercase tracking-wider shrink-0 transition-all cursor-pointer ${
                 statusFilter === filter
-                  ? 'bg-brand-600 text-white shadow-md'
-                  : 'bg-slate-950 text-slate-400 hover:text-slate-200 border border-slate-800'
+                  ? 'bg-brand-600 text-white shadow-sm'
+                  : 'bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-100'
               }`}
             >
               {filter === 'ALL' ? 'All' : 'Prepared'}
@@ -251,24 +251,24 @@ export const OrdersTracker: React.FC = () => {
       {/* Orders List Table */}
       {loading && orders.length === 0 ? (
         <div className="flex flex-col items-center justify-center min-h-[30vh] text-slate-400">
-          <Loader className="animate-spin mb-3" size={24} />
+          <Loader className="animate-spin mb-3 stroke-[1.5]" size={24} />
           <span className="text-xs">Fetching active queue...</span>
         </div>
       ) : error ? (
-        <div className="p-4 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-2xl text-xs flex items-center gap-2">
-          <AlertTriangle size={16} />
+        <div className="p-4 bg-rose-50 border border-rose-200/60 text-rose-600 rounded-2xl text-xs flex items-center gap-2">
+          <AlertTriangle size={16} className="text-rose-500" />
           <span>{error}</span>
         </div>
       ) : filteredOrders.length === 0 ? (
-        <div className="text-center py-16 bg-slate-900 border border-slate-800 rounded-3xl text-slate-500 text-xs font-semibold">
+        <div className="text-center py-16 bg-white border border-slate-100 rounded-3xl text-slate-400 text-xs font-semibold shadow-sm">
           No orders match the active filter or search criteria.
         </div>
       ) : (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
+        <div className="bg-white border border-slate-100 rounded-3xl overflow-hidden shadow-sm">
           <div className="overflow-x-auto">
-            <table className="w-full text-slate-300 text-left border-collapse">
+            <table className="w-full text-slate-700 text-left border-collapse">
               <thead>
-                <tr className="bg-slate-950/40 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
+                <tr className="bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-wider border-b border-slate-100">
                   <th className="p-4">Order ID</th>
                   <th className="p-4">Customer Name & Phone</th>
                   <th className="p-4">Amount</th>
@@ -277,23 +277,23 @@ export const OrdersTracker: React.FC = () => {
                   <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/80">
+              <tbody className="divide-y divide-slate-100">
                 {filteredOrders.map((order) => (
                   <tr 
                     key={order.id} 
                     onClick={() => setSelectedOrder(order)}
-                    className="hover:bg-slate-800/20 transition-colors cursor-pointer"
+                    className="hover:bg-slate-50/80 transition-colors cursor-pointer"
                   >
-                    <td className="p-4 font-bold text-white text-sm">
+                    <td className="p-4 font-bold text-slate-900 text-sm">
                       {order.publicOrderId}
-                      <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">
+                      <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">
                         {new Date(order.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </td>
-                    <td className="p-4 text-slate-200">
+                    <td className="p-4 text-slate-800">
                       <span className="font-bold text-sm block">{order.customerName}</span>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                        <span className="text-[10px] text-slate-400 font-semibold">
+                        <span className="text-[10px] text-slate-500 font-semibold">
                           {order.customerPhone} &bull; {order.departmentClass || 'No Department'}
                         </span>
                         <button
@@ -302,7 +302,7 @@ export const OrdersTracker: React.FC = () => {
                             e.stopPropagation();
                             navigate(`/owner/student-history?phone=${encodeURIComponent(order.customerPhone)}`);
                           }}
-                          className="inline-flex items-center gap-1 text-[10px] font-extrabold text-brand-400 hover:text-brand-300 bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/20 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
+                          className="inline-flex items-center gap-1 text-[10px] font-extrabold text-brand-600 hover:text-brand-700 bg-brand-50 hover:bg-brand-100 border border-brand-200/60 px-1.5 py-0.5 rounded cursor-pointer transition-colors"
                           title="Search full student history in sidebar"
                         >
                           <History size={10} />
@@ -310,16 +310,16 @@ export const OrdersTracker: React.FC = () => {
                         </button>
                       </div>
                     </td>
-                    <td className="p-4 font-extrabold text-white text-sm">₹{order.totalAmount}</td>
+                    <td className="p-4 font-extrabold text-slate-900 text-sm">₹{order.totalAmount}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-1.5">
                         {order.paymentMethod === 'ONLINE' ? (
-                          <CreditCard size={14} className="text-sky-400" />
+                          <CreditCard size={14} className="text-sky-500" />
                         ) : (
-                          <Wallet size={14} className="text-amber-400" />
+                          <Wallet size={14} className="text-amber-500" />
                         )}
                         <span className={`text-[10px] font-extrabold uppercase ${
-                          order.paymentStatus === 'PAID' ? 'text-emerald-400' : 'text-slate-500'
+                          order.paymentStatus === 'PAID' ? 'text-emerald-600' : 'text-slate-400'
                         }`}>
                           {order.paymentStatus}
                         </span>
@@ -337,7 +337,7 @@ export const OrdersTracker: React.FC = () => {
                             e.stopPropagation();
                             handleUpdateStatus(order.id, 'CONFIRMED');
                           }}
-                          className="bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-[10px] px-3.5 py-1.5 rounded-xl cursor-pointer transition-all"
+                          className="bg-amber-500 hover:bg-amber-600 text-white font-extrabold text-[10px] px-3.5 py-1.5 rounded-xl cursor-pointer transition-all shadow-sm"
                         >
                           Not Prepared
                         </button>
@@ -347,7 +347,7 @@ export const OrdersTracker: React.FC = () => {
                             e.stopPropagation();
                             handleUpdateStatus(order.id, 'READY');
                           }}
-                          className="bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-[10px] px-3.5 py-1.5 rounded-xl cursor-pointer transition-all"
+                          className="bg-brand-600 hover:bg-brand-700 text-white font-extrabold text-[10px] px-3.5 py-1.5 rounded-xl cursor-pointer transition-all shadow-sm"
                         >
                           Prepared
                         </button>
@@ -363,26 +363,26 @@ export const OrdersTracker: React.FC = () => {
 
       {/* ORDER DETAILS DIALOG */}
       {selectedOrder && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-850 rounded-3xl shadow-2xl p-6 animate-slide-up text-left flex flex-col gap-5">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl shadow-2xl p-6 animate-slide-up text-left flex flex-col gap-5">
             {/* Title / Close */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-base font-extrabold text-white">Order Details</h3>
-                <span className="text-[10px] text-slate-500 font-bold">{selectedOrder.publicOrderId}</span>
+                <h3 className="text-base font-extrabold text-slate-900">Order Details</h3>
+                <span className="text-[10px] text-slate-400 font-bold">{selectedOrder.publicOrderId}</span>
               </div>
               <button
                 onClick={() => setSelectedOrder(null)}
-                className="text-slate-500 hover:text-slate-300 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
             {/* Ready / Not Prepared Action Button */}
-            <div className="p-4 bg-slate-950/40 border border-slate-800 rounded-2xl flex items-center justify-between gap-3">
+            <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-between gap-3">
               <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                   Order Status
                 </span>
                 <span className={`inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getStatusBadge(selectedOrder.orderStatus)}`}>
@@ -395,7 +395,7 @@ export const OrdersTracker: React.FC = () => {
                   type="button"
                   disabled={updatingStatus}
                   onClick={() => handleUpdateStatus(selectedOrder.id, 'CONFIRMED')}
-                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   Not prepared
                 </button>
@@ -414,24 +414,24 @@ export const OrdersTracker: React.FC = () => {
             {/* Customer information */}
             <div className="grid grid-cols-2 gap-4 text-xs">
               <div className="flex flex-col gap-1">
-                <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider">Customer</span>
-                <span className="text-white font-bold flex flex-wrap items-center gap-1.5">
+                <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Customer</span>
+                <span className="text-slate-900 font-bold flex flex-wrap items-center gap-1.5">
                   <User size={12} className="text-slate-400" />
                   {selectedOrder.customerName}
                 </span>
               </div>
 
               <div className="flex flex-col gap-1">
-                <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider">Phone</span>
-                <span className="text-white font-bold flex items-center gap-1">
+                <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Phone</span>
+                <span className="text-slate-900 font-bold flex items-center gap-1">
                   <Phone size={12} className="text-slate-400" />
                   {selectedOrder.customerPhone}
                 </span>
               </div>
 
               <div className="flex flex-col gap-1 col-span-2">
-                <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider">Department / Class</span>
-                <span className="text-white font-bold flex items-center gap-1">
+                <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Department / Class</span>
+                <span className="text-slate-900 font-bold flex items-center gap-1">
                   <Building2 size={12} className="text-slate-400" />
                   {selectedOrder.departmentClass || 'No Department'}
                 </span>
@@ -440,8 +440,8 @@ export const OrdersTracker: React.FC = () => {
 
             {/* Item list */}
             <div>
-              <span className="text-slate-500 font-bold uppercase text-[9px] tracking-wider mb-2.5 block">Ordered Items</span>
-              <div className="flex flex-col gap-3 bg-slate-950/20 p-4 border border-slate-800/60 rounded-2xl max-h-48 overflow-y-auto">
+              <span className="text-slate-400 font-bold uppercase text-[9px] tracking-wider mb-2.5 block">Ordered Items</span>
+              <div className="flex flex-col gap-3 bg-slate-50 p-4 border border-slate-100 rounded-2xl max-h-48 overflow-y-auto">
                 {Object.values(
                   selectedOrder.items.reduce((acc, item) => {
                     if (!acc[item.name]) {
@@ -453,26 +453,26 @@ export const OrdersTracker: React.FC = () => {
                   }, {} as Record<string, { name: string; quantity: number; subtotal: number }>)
                 ).map((item, idx) => (
                   <div key={idx} className="flex justify-between items-center text-xs">
-                    <div className="text-slate-200 font-bold">
+                    <div className="text-slate-800 font-bold">
                       {item.name}
-                      <span className="text-slate-500 font-semibold ml-1.5">× {item.quantity}</span>
+                      <span className="text-slate-400 font-semibold ml-1.5">× {item.quantity}</span>
                     </div>
-                    <span className="text-white font-black">₹{item.subtotal}</span>
+                    <span className="text-slate-900 font-black">₹{item.subtotal}</span>
                   </div>
                 ))}
 
-                <div className="border-t border-slate-800 mt-2 pt-2 flex flex-col gap-1">
+                <div className="border-t border-slate-200 mt-2 pt-2 flex flex-col gap-1">
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-400 font-semibold">Total Invoice</span>
-                    <span className="text-brand-400 font-black text-sm">₹{selectedOrder.totalAmount}</span>
+                    <span className="text-slate-500 font-semibold">Total Invoice</span>
+                    <span className="text-brand-600 font-black text-sm">₹{selectedOrder.totalAmount}</span>
                   </div>
                   {selectedOrder.payment && selectedOrder.payment.status === 'PAID' && selectedOrder.paymentMethod === 'COD' && (
                     <>
-                      <div className="flex justify-between items-center text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                      <div className="flex justify-between items-center text-[10px] text-slate-400 font-bold uppercase tracking-wider">
                         <span>Paid Online</span>
                         <span>₹{selectedOrder.payment.amount}</span>
                       </div>
-                      <div className="flex justify-between items-center text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
+                      <div className="flex justify-between items-center text-[10px] text-emerald-600 font-bold uppercase tracking-wider">
                         <span>Pending Cash</span>
                         <span>₹{Math.max(0, selectedOrder.totalAmount - selectedOrder.payment.amount)}</span>
                       </div>
@@ -483,7 +483,7 @@ export const OrdersTracker: React.FC = () => {
             </div>
 
             {/* Status logs */}
-            <div className="flex items-center justify-between text-[10px] text-slate-500 font-semibold pt-2 border-t border-slate-800">
+            <div className="flex items-center justify-between text-[10px] text-slate-400 font-semibold pt-2 border-t border-slate-100">
               <span className="flex items-center gap-1">
                 <Calendar size={10} />
                 Order Date: {selectedOrder.businessDate}
@@ -494,7 +494,7 @@ export const OrdersTracker: React.FC = () => {
             </div>
 
             {selectedOrder.cancellationReason && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-[11px] text-rose-400 leading-snug">
+              <div className="p-3 bg-rose-50 border border-rose-200/60 rounded-xl text-[11px] text-rose-600 leading-snug">
                 <strong>Cancellation Reason:</strong> {selectedOrder.cancellationReason}
               </div>
             )}
@@ -504,26 +504,26 @@ export const OrdersTracker: React.FC = () => {
 
       {/* CANCEL ALL ORDERS DIALOG */}
       {showCancelAllModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-850 rounded-3xl shadow-2xl p-6 animate-slide-up text-left flex flex-col gap-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white border border-slate-100 rounded-3xl shadow-2xl p-6 animate-slide-up text-left flex flex-col gap-5">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
-                <h3 className="text-base font-extrabold text-white">Cancel All Orders</h3>
-                <span className="text-[10px] text-slate-500 font-bold">This will cancel all active orders for today</span>
+                <h3 className="text-base font-extrabold text-slate-900">Cancel All Orders</h3>
+                <span className="text-[10px] text-slate-400 font-bold">This will cancel all active orders for today</span>
               </div>
               <button
                 onClick={() => {
                   setShowCancelAllModal(false);
                   setCancelAllReason('');
                 }}
-                className="text-slate-500 hover:text-slate-300 cursor-pointer"
+                className="text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
             <div className="flex flex-col gap-2">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+              <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">
                 Reason for cancellation
               </label>
               <input
@@ -531,24 +531,24 @@ export const OrdersTracker: React.FC = () => {
                 placeholder="Enter cancellation reason (e.g. Shop Closing, Power Cut)..."
                 value={cancelAllReason}
                 onChange={(e) => setCancelAllReason(e.target.value)}
-                className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-850 focus:border-rose-500 rounded-xl text-xs font-semibold outline-none text-white placeholder:text-slate-700"
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 focus:border-rose-500 focus:bg-white rounded-xl text-xs font-semibold outline-none text-slate-900 placeholder:text-slate-400 transition-colors"
               />
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
               <button
                 onClick={() => {
                   setShowCancelAllModal(false);
                   setCancelAllReason('');
                 }}
-                className="px-4 py-2 bg-slate-950 hover:bg-slate-800 text-slate-400 font-extrabold text-xs rounded-xl border border-slate-850 cursor-pointer"
+                className="px-4 py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 font-extrabold text-xs rounded-xl border border-slate-200 cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCancelAllOrders}
                 disabled={cancellingAll}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-800 disabled:text-slate-600 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
               >
                 {cancellingAll ? (
                   <>
