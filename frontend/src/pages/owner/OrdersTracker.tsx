@@ -379,24 +379,36 @@ export const OrdersTracker: React.FC = () => {
               </button>
             </div>
 
-            {/* Stepper Status dropdown */}
-            <div className="p-4 bg-slate-950/40 border border-slate-800 rounded-2xl">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2 block">
-                Update Order Stage
-              </label>
-              
-              <select
-                value={selectedOrder.orderStatus}
-                onChange={(e) => handleUpdateStatus(selectedOrder.id, e.target.value)}
-                disabled={updatingStatus || selectedOrder.orderStatus === 'DELIVERED' || selectedOrder.orderStatus === 'CANCELLED'}
-                className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs font-bold px-3 py-2.5 rounded-xl outline-none focus:border-brand-500 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {allStatuses.map(status => (
-                  <option key={status} value={status}>
-                    {status.replace(/_/g, ' ')}
-                  </option>
-                ))}
-              </select>
+            {/* Ready / Not Prepared Action Button */}
+            <div className="p-4 bg-slate-950/40 border border-slate-800 rounded-2xl flex items-center justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Order Status
+                </span>
+                <span className={`inline-flex items-center gap-1 mt-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${getStatusBadge(selectedOrder.orderStatus)}`}>
+                  {selectedOrder.orderStatus === 'READY' ? 'PREPARED' : selectedOrder.orderStatus.replace(/_/g, ' ')}
+                </span>
+              </div>
+
+              {selectedOrder.orderStatus === 'READY' ? (
+                <button
+                  type="button"
+                  disabled={updatingStatus}
+                  onClick={() => handleUpdateStatus(selectedOrder.id, 'CONFIRMED')}
+                  className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  Not prepared
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={updatingStatus || selectedOrder.orderStatus === 'CANCELLED' || selectedOrder.orderStatus === 'DELIVERED'}
+                  onClick={() => handleUpdateStatus(selectedOrder.id, 'READY')}
+                  className="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  Ready
+                </button>
+              )}
             </div>
 
             {/* Customer information */}
