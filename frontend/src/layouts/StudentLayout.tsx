@@ -40,7 +40,7 @@ export const StudentLayout: React.FC = () => {
       <footer className="w-full bg-white border-t border-slate-100 py-4 text-center text-slate-400 text-xs mt-auto">
         <div className="max-w-md mx-auto px-4 flex items-center justify-center gap-1.5">
           <Store size={12} />
-          <span>College Food Court &bull; Fresh & Fast</span>
+          <span>Omni Canteen &bull; Fresh & Tasty</span>
         </div>
       </footer>
     </div>

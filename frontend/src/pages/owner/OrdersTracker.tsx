@@ -271,7 +271,6 @@ export const OrdersTracker: React.FC = () => {
                 <tr className="bg-slate-950/40 text-slate-400 text-[10px] font-bold uppercase tracking-wider border-b border-slate-800">
                   <th className="p-4">Order ID</th>
                   <th className="p-4">Customer Name & Phone</th>
-                  <th className="p-4">Order Type</th>
                   <th className="p-4">Amount</th>
                   <th className="p-4">Payment</th>
                   <th className="p-4">Order Status</th>
@@ -310,17 +309,6 @@ export const OrdersTracker: React.FC = () => {
                           History
                         </button>
                       </div>
-                    </td>
-                    <td className="p-4">
-                      {order.hasOtherOrdersToday ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-amber-500/10 text-amber-400 border-amber-500/20 uppercase tracking-wider">
-                          Multiple Orders
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-slate-800 text-slate-400 border-slate-700 uppercase tracking-wider">
-                          First Order
-                        </span>
-                      )}
                     </td>
                     <td className="p-4 font-extrabold text-white text-sm">₹{order.totalAmount}</td>
                     <td className="p-4">

@@ -115,10 +115,10 @@ export const TodayMenu: React.FC = () => {
             Fresh Today
           </span>
           <h2 className="text-xl font-extrabold tracking-tight mb-1">
-            Skip the WhatsApp Line!
+            Your Lunch. One Tap Away.
           </h2>
           <p className="text-brand-200 text-xs max-w-xs leading-relaxed">
-            Order your college lunch directly here and pick it up hot at the food counter.
+            Choose your meal, place your order, and pick it up fresh at the Omni counter.
           </p>
         </div>
         <div className="absolute right-0 bottom-0 opacity-10 transform translate-x-4 translate-y-4">
