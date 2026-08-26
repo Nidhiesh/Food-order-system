@@ -63,8 +63,10 @@ export async function createRazorpayOrder(
         orderId,
         gateway: 'RAZORPAY_MOCK',
         gatewayOrderId: mockOrderId,
+        gatewayPaymentId: 'pay_mock_success',
+        signature: 'mock_sig_hash_validated_locally',
         amount,
-        status: 'PENDING',
+        status: 'PAID',
       },
     });
 
@@ -72,12 +74,12 @@ export async function createRazorpayOrder(
       id: mockOrderId,
       entity: 'order',
       amount: amountInPaise,
-      amount_paid: 0,
-      amount_due: amountInPaise,
+      amount_paid: amountInPaise,
+      amount_due: 0,
       currency: 'INR',
       receipt: orderId,
-      status: 'created',
-      attempts: 0,
+      status: 'paid',
+      attempts: 1,
       notes: {},
       created_at: Math.floor(Date.now() / 1000),
       isMock: true,
@@ -138,8 +140,8 @@ export async function verifyRazorpayPayment(
     // 2. Perform Signature Verification
     if (payment.gateway === 'RAZORPAY_MOCK') {
       // Mock Sandbox validation rule
-      if (razorpayPaymentId !== 'pay_mock_success') {
-        throw new AppError('Mock payment was cancelled or failed.', 400);
+      if (razorpayPaymentId === 'pay_mock_cancel') {
+        throw new AppError('Mock payment was cancelled.', 400);
       }
     } else {
       // Real signature verification

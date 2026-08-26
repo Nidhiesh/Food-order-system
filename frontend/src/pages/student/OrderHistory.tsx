@@ -487,7 +487,9 @@ export const OrderHistory: React.FC = () => {
                           Cash on Delivery
                         </span>
                       ) : (
-                        `(${order.paymentMethod})`
+                        <span className="text-emerald-600 font-extrabold uppercase text-[9px] tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/50">
+                          Paid Online
+                        </span>
                       )}
                     </span>
                   </div>

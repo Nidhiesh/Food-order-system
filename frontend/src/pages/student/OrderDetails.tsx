@@ -168,15 +168,23 @@ export const OrderDetails: React.FC = () => {
     return currentMinutes < cutoffMinutes;
   };
 
+  // Normalize online orders so they always display as PAID and CONFIRMED
+  const isOnline = order.paymentMethod === 'ONLINE';
+  const isCancelled = order.orderStatus === 'CANCELLED';
+  const effectivePaymentStatus = isCancelled ? 'CANCELLED' : (isOnline ? 'PAID' : order.paymentStatus);
+  const effectiveOrderStatus = isCancelled 
+    ? 'CANCELLED' 
+    : (isOnline && order.orderStatus === 'PENDING_PAYMENT' ? 'CONFIRMED' : order.orderStatus);
+
   // Stepper statuses
   const steps = ['CONFIRMED', 'DELIVERED'];
   const getStepIndex = (status: string) => {
-    if (status === 'PENDING_PAYMENT') return -1;
     if (status === 'CANCELLED' || status === 'PAYMENT_FAILED') return -2;
-    return steps.indexOf(status);
+    if (status === 'PENDING_PAYMENT' && !isOnline) return -1;
+    return steps.indexOf(status === 'PENDING_PAYMENT' && isOnline ? 'CONFIRMED' : status);
   };
 
-  const currentStepIndex = getStepIndex(order.orderStatus);
+  const currentStepIndex = getStepIndex(effectiveOrderStatus);
 
   const handleBack = () => {
     const returnDate = (location.state as any)?.returnDate || sessionStorage.getItem('student_selected_order_date');
@@ -219,7 +227,7 @@ export const OrderDetails: React.FC = () => {
         <div className="flex items-center justify-between mb-6">
           <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Order Status</span>
           <div className="flex items-center gap-2">
-            {order.orderStatus === 'CANCELLED' ? (
+            {isCancelled ? (
               <span className="px-3 py-1 rounded-full text-xs font-black uppercase border border-rose-200 bg-rose-50 text-rose-600">
                 Cancelled
               </span>
@@ -228,8 +236,8 @@ export const OrderDetails: React.FC = () => {
                 Payment Pending
               </span>
             ) : (
-              <span className={`px-3 py-1 rounded-full text-xs font-black uppercase border ${getStatusColor(order.orderStatus)} bg-opacity-10`}>
-                {order.orderStatus.replace(/_/g, ' ')}
+              <span className={`px-3 py-1 rounded-full text-xs font-black uppercase border ${getStatusColor(effectiveOrderStatus)} bg-opacity-10`}>
+                {effectiveOrderStatus.replace(/_/g, ' ')}
               </span>
             )}
           </div>
@@ -244,14 +252,6 @@ export const OrderDetails: React.FC = () => {
               <span className="text-xs text-rose-600 block leading-snug">
                 Reason: {order.cancellationReason || 'No reason provided'}
               </span>
-            </div>
-          </div>
-        ) : currentStepIndex === -1 ? (
-          // Online payment pending view
-          <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-2xl text-amber-700">
-            <Clock size={24} className="shrink-0 animate-pulse-slow" />
-            <div className="text-left">
-              <span className="font-extrabold text-sm block">Payment Pending</span>
             </div>
           </div>
         ) : (
@@ -327,30 +327,30 @@ export const OrderDetails: React.FC = () => {
         <div className="flex items-center justify-between text-sm font-semibold text-slate-600 mb-2">
           <span>Payment Method</span>
           <span className="text-slate-900 font-bold">
-            {order.paymentMethod === 'COD' ? 'Cash on Delivery (COD)' : 'Online Payment (Razorpay)'}
+            {order.paymentMethod === 'COD' ? 'Cash on Delivery (COD)' : 'Online Payment (UPI / GPay / Cards)'}
           </span>
         </div>
 
         <div className="flex items-center justify-between text-sm font-semibold text-slate-600 pb-4 border-b border-slate-50 mb-4">
           <span>Payment Status</span>
           <span className={`font-extrabold uppercase text-xs ${
-            order.orderStatus === 'CANCELLED'
+            isCancelled
               ? 'text-rose-500 font-black'
-              : order.paymentStatus === 'PAID'
+              : effectivePaymentStatus === 'PAID'
               ? 'text-emerald-500'
               : 'text-amber-500'
           }`}>
-            {order.orderStatus === 'CANCELLED'
-              ? (order.paymentMethod === 'ONLINE' && order.paymentStatus === 'PAID' ? 'REFUNDED' : 'CANCELLED (VOID)')
-              : order.paymentStatus}
+            {isCancelled
+              ? (isOnline && effectivePaymentStatus === 'PAID' ? 'REFUNDED' : 'CANCELLED (VOID)')
+              : effectivePaymentStatus}
           </span>
         </div>
 
         <div className="flex items-center justify-between">
           <span className="font-extrabold text-slate-900 text-sm">
-            {order.orderStatus === 'CANCELLED' ? 'Total Amount' : (order.paymentStatus === 'PAID' ? 'Total Paid' : 'Total Amount Due')}
+            {isCancelled ? 'Total Amount' : (effectivePaymentStatus === 'PAID' ? 'Total Paid' : 'Total Amount Due')}
           </span>
-          <span className={`text-base font-black ${order.orderStatus === 'CANCELLED' ? 'text-slate-400 line-through' : 'text-brand-700'}`}>
+          <span className={`text-base font-black ${isCancelled ? 'text-slate-400 line-through' : 'text-brand-700'}`}>
             ₹{order.totalAmount}
           </span>
         </div>

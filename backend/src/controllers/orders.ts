@@ -285,7 +285,7 @@ function groupActiveOrders(orders: any[], businessDate: string) {
   const activeGroups: Record<string, any[]> = {};
   
   for (const order of orders) {
-    const isPrepActive = ['PENDING_PAYMENT', 'CONFIRMED', 'PREPARING'].includes(order.orderStatus);
+    const isPrepActive = ['PENDING_PAYMENT', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'].includes(order.orderStatus);
     
     if (isPrepActive) {
       const key = `${order.customerName.trim().toLowerCase()}_${order.customerPhone.trim()}`;
@@ -345,11 +345,18 @@ function groupActiveOrders(orders: any[], businessDate: string) {
       }
     }
 
-    let orderStatus = 'PENDING_PAYMENT';
-    if (group.some(o => o.orderStatus === 'CONFIRMED')) {
+    let orderStatus = primary.orderStatus;
+    const statuses = group.map(o => o.orderStatus);
+    if (statuses.includes('CONFIRMED')) {
       orderStatus = 'CONFIRMED';
-    } else if (group.some(o => o.orderStatus === 'PREPARING')) {
+    } else if (statuses.includes('PREPARING')) {
       orderStatus = 'PREPARING';
+    } else if (statuses.includes('READY')) {
+      orderStatus = 'READY';
+    } else if (statuses.includes('OUT_FOR_DELIVERY')) {
+      orderStatus = 'OUT_FOR_DELIVERY';
+    } else if (statuses.includes('PENDING_PAYMENT')) {
+      orderStatus = 'PENDING_PAYMENT';
     }
 
     const hasCod = group.some(o => o.paymentMethod === 'COD');
