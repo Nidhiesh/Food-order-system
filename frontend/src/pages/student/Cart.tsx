@@ -1,15 +1,34 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
-import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag } from 'lucide-react';
+import { Trash2, Plus, Minus, ArrowLeft, ShoppingBag, AlertTriangle, X } from 'lucide-react';
 
 export const Cart: React.FC = () => {
   const navigate = useNavigate();
-  const { cartItems, updateQuantity, removeFromCart, getCartTotal } = useCart();
+  const { cartItems, updateQuantity, removeFromCart, getCartTotal, removedItemsNotice, clearRemovedItemsNotice } = useCart();
 
   if (cartItems.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4 animate-fade-in">
+        {removedItemsNotice.length > 0 && (
+          <div className="mb-6 w-full max-w-md p-4 bg-amber-50 border border-amber-200 rounded-3xl flex items-start justify-between gap-3 text-amber-900 text-left">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+              <div className="text-xs">
+                <p className="font-bold">Item(s) Unavailable</p>
+                <p className="text-amber-700 mt-0.5">
+                  {removedItemsNotice.join(', ')} {removedItemsNotice.length === 1 ? 'was' : 'were'} removed from your cart because {removedItemsNotice.length === 1 ? "it's" : "they're"} no longer available today.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={clearRemovedItemsNotice}
+              className="text-amber-500 hover:text-amber-800 p-1"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
         <div className="w-20 h-20 rounded-3xl bg-slate-100 flex items-center justify-center text-slate-400 mb-6">
           <ShoppingBag size={36} className="stroke-[1.5]" />
         </div>
@@ -41,6 +60,27 @@ export const Cart: React.FC = () => {
           Review Your Order
         </h2>
       </div>
+
+      {/* Removed items alert notice */}
+      {removedItemsNotice.length > 0 && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-3xl flex items-start justify-between gap-3 text-amber-900 animate-slide-up">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+            <div className="text-xs">
+              <p className="font-bold">Item(s) Unavailable</p>
+              <p className="text-amber-700 mt-0.5">
+                {removedItemsNotice.join(', ')} {removedItemsNotice.length === 1 ? 'was' : 'were'} removed from your cart because {removedItemsNotice.length === 1 ? "it's" : "they're"} no longer available today.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={clearRemovedItemsNotice}
+            className="text-amber-500 hover:text-amber-800 p-1"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {/* Cart Items List */}
       <div className="flex flex-col gap-4 mb-6">

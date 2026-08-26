@@ -12,6 +12,7 @@ const error_1 = require("../middleware/error");
 const shopState_1 = require("../services/shopState");
 const validators_1 = require("../validators");
 const timezone_1 = require("../utils/timezone");
+const sseManager_1 = require("../services/sseManager");
 const prisma = new client_1.PrismaClient();
 // ==========================================
 // PUBLIC ENDPOINTS
@@ -89,6 +90,7 @@ async function createCatalogItem(req, res, next) {
                 },
             });
         }
+        sseManager_1.sseManager.broadcast('menu_updated', { action: 'item_added', name: product.name });
         res.status(201).json({
             success: true,
             message: 'Product created and added to catalog.',
@@ -119,9 +121,11 @@ async function updateCatalogItem(req, res, next) {
                     name: product.name,
                     description: product.description,
                     price: parsed.defaultPrice !== undefined ? parsed.defaultPrice : undefined,
+                    isAvailable: parsed.isAvailable !== undefined ? parsed.isAvailable : undefined,
                 },
             });
         }
+        sseManager_1.sseManager.broadcast('menu_updated', { action: 'item_updated', productId: id });
         res.json({
             success: true,
             message: 'Catalog product updated.',
@@ -157,6 +161,7 @@ async function deleteCatalogItem(req, res, next) {
                 where: { businessDate, productId: id },
                 data: { isAvailable: false },
             });
+            sseManager_1.sseManager.broadcast('menu_updated', { action: 'item_deleted', productId: id });
             res.json({
                 success: true,
                 message: 'Product is linked to historical orders. Soft-deleted (marked unavailable) to preserve records.',
@@ -173,6 +178,7 @@ async function deleteCatalogItem(req, res, next) {
             await prisma.product.delete({
                 where: { id },
             });
+            sseManager_1.sseManager.broadcast('menu_updated', { action: 'item_deleted', productId: id });
             res.json({
                 success: true,
                 message: 'Product permanently deleted from catalog.',
@@ -221,6 +227,7 @@ async function updateTodayMenuItem(req, res, next) {
             where: { id },
             data: parsed,
         });
+        sseManager_1.sseManager.broadcast('menu_updated', { action: 'item_updated', menuItemId: id });
         res.json({
             success: true,
             message: 'Daily menu item updated.',

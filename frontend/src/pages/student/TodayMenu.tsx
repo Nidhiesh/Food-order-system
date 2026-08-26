@@ -17,7 +17,7 @@ interface MenuItem {
 
 export const TodayMenu: React.FC = () => {
   const navigate = useNavigate();
-  const { cartItems, addToCart, updateQuantity, getCartTotal, getTotalItemsCount } = useCart();
+  const { cartItems, addToCart, updateQuantity, getCartTotal, getTotalItemsCount, syncCartWithMenu } = useCart();
   
   const [menu, setMenu] = useState<MenuItem[]>(
     () => pageCache.get<MenuItem[]>('student:menu') ?? []
@@ -54,6 +54,7 @@ export const TodayMenu: React.FC = () => {
         const items = menuRes.menu || [];
         setMenu(items);
         pageCache.set('student:menu', items);
+        syncCartWithMenu(items);
       }
     } catch (err: any) {
       console.error(err);
@@ -63,7 +64,7 @@ export const TodayMenu: React.FC = () => {
     } finally {
       if (showLoading) setLoading(false);
     }
-  }, [navigate]);
+  }, [navigate, syncCartWithMenu]);
 
   // Subscribe to SSE for instant updates
   useSSE({

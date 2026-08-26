@@ -66,12 +66,13 @@ async function login(req, res, next) {
         res.cookie('owner_token', token, {
             httpOnly: true,
             secure: NODE_ENV === 'production',
-            sameSite: 'lax',
+            sameSite: NODE_ENV === 'production' ? 'none' : 'lax',
             maxAge: 24 * 60 * 60 * 1000, // 1 day
         });
         res.json({
             success: true,
             message: 'Login successful',
+            token,
             owner: {
                 id: owner.id,
                 email: owner.email,
@@ -87,7 +88,7 @@ async function logout(req, res, next) {
         res.clearCookie('owner_token', {
             httpOnly: true,
             secure: NODE_ENV === 'production',
-            sameSite: 'lax',
+            sameSite: NODE_ENV === 'production' ? 'none' : 'lax',
         });
         res.json({
             success: true,

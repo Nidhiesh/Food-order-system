@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { studentApi } from '../../services/api';
-import { ArrowLeft, User, Phone, School, Wallet, CreditCard, ShieldCheck, Loader } from 'lucide-react';
+import { ArrowLeft, User, Phone, School, Wallet, CreditCard, ShieldCheck, Loader, AlertTriangle, X } from 'lucide-react';
 
 export const Checkout: React.FC = () => {
   const navigate = useNavigate();
-  const { cartItems, getCartTotal, clearCart } = useCart();
+  const { cartItems, getCartTotal, clearCart, removedItemsNotice, clearRemovedItemsNotice } = useCart();
 
   const [name, setName] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
@@ -15,6 +15,12 @@ export const Checkout: React.FC = () => {
   
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    if (cartItems.length === 0 && !loading) {
+      navigate('/cart', { replace: true });
+    }
+  }, [cartItems.length, loading, navigate]);
 
   // Mock modal state
   const [showMockModal, setShowMockModal] = useState<boolean>(false);
@@ -178,6 +184,27 @@ export const Checkout: React.FC = () => {
           Checkout Details
         </h2>
       </div>
+
+      {/* Removed items alert notice */}
+      {removedItemsNotice.length > 0 && (
+        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-3xl flex items-start justify-between gap-3 text-amber-900 animate-slide-up">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+            <div className="text-xs">
+              <p className="font-bold">Item(s) Unavailable</p>
+              <p className="text-amber-700 mt-0.5">
+                {removedItemsNotice.join(', ')} {removedItemsNotice.length === 1 ? 'was' : 'were'} removed from your order because {removedItemsNotice.length === 1 ? "it's" : "they're"} no longer available today.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={clearRemovedItemsNotice}
+            className="text-amber-500 hover:text-amber-800 p-1"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-3xl text-rose-600 text-xs font-semibold">

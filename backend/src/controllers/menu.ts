@@ -125,9 +125,12 @@ export async function updateCatalogItem(req: Request, res: Response, next: NextF
           name: product.name,
           description: product.description,
           price: parsed.defaultPrice !== undefined ? parsed.defaultPrice : undefined,
+          isAvailable: parsed.isAvailable !== undefined ? parsed.isAvailable : undefined,
         },
       });
     }
+
+    sseManager.broadcast('menu_updated', { action: 'item_updated', productId: id });
 
     res.json({
       success: true,
@@ -169,6 +172,8 @@ export async function deleteCatalogItem(req: Request, res: Response, next: NextF
         data: { isAvailable: false },
       });
 
+      sseManager.broadcast('menu_updated', { action: 'item_deleted', productId: id });
+
       res.json({
         success: true,
         message: 'Product is linked to historical orders. Soft-deleted (marked unavailable) to preserve records.',
@@ -185,6 +190,8 @@ export async function deleteCatalogItem(req: Request, res: Response, next: NextF
       await prisma.product.delete({
         where: { id },
       });
+
+      sseManager.broadcast('menu_updated', { action: 'item_deleted', productId: id });
 
       res.json({
         success: true,

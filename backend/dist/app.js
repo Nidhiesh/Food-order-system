@@ -14,6 +14,7 @@ const menu_1 = __importDefault(require("./routes/menu"));
 const orders_1 = __importDefault(require("./routes/orders"));
 const payments_1 = __importDefault(require("./routes/payments"));
 const shop_1 = __importDefault(require("./routes/shop"));
+const sse_1 = __importDefault(require("./routes/sse"));
 const app = (0, express_1.default)();
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const COOKIE_SECRET = process.env.COOKIE_SECRET || 'super_cookie_secret_local_testing_98765';
@@ -69,6 +70,7 @@ app.use('/api/menu', menu_1.default);
 app.use('/api/orders', orders_1.default);
 app.use('/api/payments', payments_1.default);
 app.use('/api/shop', shop_1.default);
+app.use('/api/sse', sse_1.default);
 // Health check endpoint
 app.get('/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date() });

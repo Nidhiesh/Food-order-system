@@ -9,6 +9,7 @@ const client_1 = require("@prisma/client");
 const timezone_1 = require("../utils/timezone");
 const shopState_1 = require("../services/shopState");
 const validators_1 = require("../validators");
+const sseManager_1 = require("../services/sseManager");
 const prisma = new client_1.PrismaClient();
 async function getPublicStatus(req, res, next) {
     try {
@@ -48,6 +49,7 @@ async function closeShop(req, res, next) {
             where: { id: state.id },
             data: { manualClosed: true },
         });
+        sseManager_1.sseManager.broadcast('shop_updated', { isOpen: false });
         res.json({
             success: true,
             message: 'Shop manually closed.',
@@ -65,6 +67,7 @@ async function openShop(req, res, next) {
             where: { id: state.id },
             data: { manualClosed: false },
         });
+        sseManager_1.sseManager.broadcast('shop_updated', { isOpen: true });
         res.json({
             success: true,
             message: 'Shop manually opened.',
@@ -83,6 +86,7 @@ async function updateConfig(req, res, next) {
             where: { id: state.id },
             data: parsed,
         });
+        sseManager_1.sseManager.broadcast('shop_updated', { configUpdated: true });
         res.json({
             success: true,
             message: 'Operational configuration updated.',

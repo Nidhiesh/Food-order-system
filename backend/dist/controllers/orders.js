@@ -38,11 +38,13 @@ exports.getOrderDetails = getOrderDetails;
 exports.cancelOrder = cancelOrder;
 exports.getOrderHistory = getOrderHistory;
 exports.getTodayOrdersOwner = getTodayOrdersOwner;
+exports.searchOrdersOwner = searchOrdersOwner;
 exports.getCodPendingOrdersOwner = getCodPendingOrdersOwner;
 exports.markCodDeliveredOwner = markCodDeliveredOwner;
 exports.updateOrderStatusOwner = updateOrderStatusOwner;
 exports.getTodayPreparationSummary = getTodayPreparationSummary;
 exports.getTodaySalesSummary = getTodaySalesSummary;
+exports.cancelAllOrdersOwner = cancelAllOrdersOwner;
 const client_1 = require("@prisma/client");
 const crypto = __importStar(require("crypto"));
 const error_1 = require("../middleware/error");
@@ -50,6 +52,7 @@ const validators_1 = require("../validators");
 const shopState_1 = require("../services/shopState");
 const timezone_1 = require("../utils/timezone");
 const payments_1 = require("../services/payments");
+const sseManager_1 = require("../services/sseManager");
 const prisma = new client_1.PrismaClient();
 // ==========================================
 // STUDENT ENDPOINTS
@@ -81,27 +84,6 @@ async function createOrder(req, res, next) {
                 if (!menuItem.isAvailable) {
                     throw new error_1.AppError(`Food item '${menuItem.name}' is sold out/unavailable`, 400);
                 }
-                // Stock checks and decrement disabled for unlimited stock count
-                /*
-                if (menuItem.availableQuantity < item.quantity) {
-                  throw new AppError(`Insufficient stock for '${menuItem.name}'. Only ${menuItem.availableQuantity} left.`, 400);
-                }
-        
-                // Deduct stock atomically
-                const updatedMenuItem = await tx.menuItem.update({
-                  where: { id: menuItem.id },
-                  data: {
-                    availableQuantity: {
-                      decrement: item.quantity,
-                    },
-                  },
-                });
-        
-                // Fail-safe check
-                if (updatedMenuItem.availableQuantity < 0) {
-                  throw new AppError(`Stock for '${menuItem.name}' was depleted by a concurrent order`, 400);
-                }
-                */
                 const subtotal = menuItem.price * item.quantity;
                 totalAmount += subtotal;
                 orderItemsData.push({
@@ -153,6 +135,11 @@ async function createOrder(req, res, next) {
                 order: newOrder,
                 razorpayOrder: rzpOrder,
             };
+        });
+        // Broadcast to all SSE clients so order lists refresh immediately
+        sseManager_1.sseManager.broadcast('order_created', {
+            publicOrderId: result.order.publicOrderId,
+            paymentMethod: result.order.paymentMethod,
         });
         res.status(201).json({
             success: true,
@@ -261,6 +248,8 @@ async function cancelOrder(req, res, next) {
             }
             */
         });
+        // Broadcast cancellation so order lists and detail pages refresh immediately
+        sseManager_1.sseManager.broadcast('order_cancelled', { publicOrderId });
         res.json({
             success: true,
             message: 'Order cancelled successfully and stock restored.',
@@ -297,17 +286,259 @@ async function getOrderHistory(req, res, next) {
 // ==========================================
 // OWNER ENDPOINTS
 // ==========================================
+function groupActiveOrders(orders, businessDate) {
+    const groupedOrders = [];
+    const activeGroups = {};
+    for (const order of orders) {
+        const isPrepActive = ['PENDING_PAYMENT', 'CONFIRMED', 'PREPARING'].includes(order.orderStatus);
+        if (isPrepActive) {
+            const key = `${order.customerName.trim().toLowerCase()}_${order.customerPhone.trim()}`;
+            if (!activeGroups[key]) {
+                activeGroups[key] = [];
+            }
+            activeGroups[key].push(order);
+        }
+        else {
+            groupedOrders.push({
+                ...order,
+                mergedOrderIds: [order.id],
+                isGrouped: false,
+            });
+        }
+    }
+    for (const key of Object.keys(activeGroups)) {
+        const group = activeGroups[key];
+        if (group.length === 1) {
+            groupedOrders.push({
+                ...group[0],
+                mergedOrderIds: [group[0].id],
+                isGrouped: false,
+            });
+            continue;
+        }
+        group.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        const primary = group[0];
+        const itemMap = {};
+        for (const order of group) {
+            for (const item of order.items) {
+                if (!itemMap[item.name]) {
+                    itemMap[item.name] = {
+                        id: item.id,
+                        orderId: primary.id,
+                        menuItemId: item.menuItemId,
+                        name: item.name,
+                        unitPrice: item.unitPrice,
+                        quantity: 0,
+                        subtotal: 0,
+                    };
+                }
+                itemMap[item.name].quantity += item.quantity;
+                itemMap[item.name].subtotal += item.subtotal;
+            }
+        }
+        const totalAmount = group.reduce((sum, o) => sum + o.totalAmount, 0);
+        let totalOnlinePaidAmount = 0;
+        for (const o of group) {
+            if (o.payment && o.payment.status === 'PAID') {
+                totalOnlinePaidAmount += o.payment.amount;
+            }
+        }
+        let orderStatus = 'PENDING_PAYMENT';
+        if (group.some(o => o.orderStatus === 'CONFIRMED')) {
+            orderStatus = 'CONFIRMED';
+        }
+        else if (group.some(o => o.orderStatus === 'PREPARING')) {
+            orderStatus = 'PREPARING';
+        }
+        const hasCod = group.some(o => o.paymentMethod === 'COD');
+        const paymentMethod = (hasCod || totalAmount > totalOnlinePaidAmount) ? 'COD' : 'ONLINE';
+        const paymentStatus = totalOnlinePaidAmount >= totalAmount ? 'PAID' : 'PENDING';
+        let payment = null;
+        if (totalOnlinePaidAmount > 0) {
+            payment = {
+                id: 'virtual-payment-' + primary.id,
+                orderId: primary.id,
+                gateway: 'RAZORPAY',
+                gatewayOrderId: 'virtual-gateway-' + primary.id,
+                amount: totalOnlinePaidAmount,
+                status: 'PAID',
+                createdAt: primary.createdAt,
+                updatedAt: primary.updatedAt,
+            };
+        }
+        const virtualOrder = {
+            ...primary,
+            items: Object.values(itemMap),
+            totalAmount,
+            orderStatus,
+            paymentMethod,
+            paymentStatus,
+            payment,
+            mergedOrderIds: group.map(o => o.id),
+            isGrouped: true,
+        };
+        groupedOrders.push(virtualOrder);
+    }
+    // Sort overall by createdAt descending to match expectations
+    groupedOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return groupedOrders;
+}
+function groupCodPendingOrders(orders, businessDate) {
+    const groupedOrders = [];
+    const groups = {};
+    for (const order of orders) {
+        const key = `${order.customerName.trim().toLowerCase()}_${order.customerPhone.trim()}`;
+        if (!groups[key]) {
+            groups[key] = [];
+        }
+        groups[key].push(order);
+    }
+    for (const key of Object.keys(groups)) {
+        const group = groups[key];
+        if (group.length === 1) {
+            groupedOrders.push({
+                ...group[0],
+                mergedOrderIds: [group[0].id],
+                isGrouped: false,
+            });
+            continue;
+        }
+        group.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        const primary = group[0];
+        const itemMap = {};
+        for (const order of group) {
+            for (const item of order.items) {
+                if (!itemMap[item.name]) {
+                    itemMap[item.name] = {
+                        id: item.id,
+                        orderId: primary.id,
+                        menuItemId: item.menuItemId,
+                        name: item.name,
+                        unitPrice: item.unitPrice,
+                        quantity: 0,
+                        subtotal: 0,
+                    };
+                }
+                itemMap[item.name].quantity += item.quantity;
+                itemMap[item.name].subtotal += item.subtotal;
+            }
+        }
+        const totalAmount = group.reduce((sum, o) => sum + o.totalAmount, 0);
+        let totalOnlinePaidAmount = 0;
+        for (const o of group) {
+            if (o.payment && o.payment.status === 'PAID') {
+                totalOnlinePaidAmount += o.payment.amount;
+            }
+        }
+        let orderStatus = primary.orderStatus;
+        const statuses = group.map(o => o.orderStatus);
+        if (statuses.includes('CONFIRMED')) {
+            orderStatus = 'CONFIRMED';
+        }
+        else if (statuses.includes('PREPARING')) {
+            orderStatus = 'PREPARING';
+        }
+        else if (statuses.includes('READY')) {
+            orderStatus = 'READY';
+        }
+        else if (statuses.includes('OUT_FOR_DELIVERY')) {
+            orderStatus = 'OUT_FOR_DELIVERY';
+        }
+        let payment = null;
+        if (totalOnlinePaidAmount > 0) {
+            payment = {
+                id: 'virtual-payment-' + primary.id,
+                orderId: primary.id,
+                gateway: 'RAZORPAY',
+                gatewayOrderId: 'virtual-gateway-' + primary.id,
+                amount: totalOnlinePaidAmount,
+                status: 'PAID',
+                createdAt: primary.createdAt,
+                updatedAt: primary.updatedAt,
+            };
+        }
+        const virtualOrder = {
+            ...primary,
+            items: Object.values(itemMap),
+            totalAmount,
+            orderStatus,
+            payment,
+            mergedOrderIds: group.map(o => o.id),
+            isGrouped: true,
+        };
+        groupedOrders.push(virtualOrder);
+    }
+    // Sort overall by createdAt ascending to match expectations
+    groupedOrders.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    return groupedOrders;
+}
 async function getTodayOrdersOwner(req, res, next) {
     try {
         const businessDate = (0, timezone_1.getKolkataBusinessDate)();
         const orders = await prisma.order.findMany({
             where: { businessDate },
-            include: { items: true },
+            include: { items: true, payment: true },
             orderBy: { createdAt: 'desc' },
         });
+        const grouped = groupActiveOrders(orders, businessDate);
+        const ordersWithIndicators = await Promise.all(grouped.map(async (order) => {
+            const otherOrdersCount = await prisma.order.count({
+                where: {
+                    businessDate,
+                    customerPhone: order.customerPhone,
+                    customerName: {
+                        equals: order.customerName,
+                        mode: 'insensitive',
+                    },
+                    id: { notIn: order.mergedOrderIds },
+                },
+            });
+            return {
+                ...order,
+                hasOtherOrdersToday: otherOrdersCount > 0 || (order.mergedOrderIds && order.mergedOrderIds.length > 1),
+            };
+        }));
         res.json({
             success: true,
             businessDate,
+            orders: ordersWithIndicators,
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+}
+async function searchOrdersOwner(req, res, next) {
+    try {
+        const { phone, date, status } = req.query;
+        // Student phone number is strictly mandatory for student history lookup
+        if (!phone || typeof phone !== 'string' || !phone.trim()) {
+            return res.json({
+                success: true,
+                orders: [],
+            });
+        }
+        const trimmedPhone = phone.trim();
+        const where = {
+            customerPhone: { contains: trimmedPhone },
+        };
+        if (date && typeof date === 'string' && date.trim()) {
+            where.businessDate = date.trim();
+        }
+        if (status && typeof status === 'string' && status.trim() && status !== 'ALL') {
+            where.orderStatus = status.trim();
+        }
+        const orders = await prisma.order.findMany({
+            where,
+            include: {
+                items: true,
+                payment: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 100,
+        });
+        res.json({
+            success: true,
             orders,
         });
     }
@@ -326,12 +557,30 @@ async function getCodPendingOrdersOwner(req, res, next) {
                     in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'],
                 },
             },
-            include: { items: true },
+            include: { items: true, payment: true },
             orderBy: { createdAt: 'asc' },
         });
+        const grouped = groupCodPendingOrders(orders, businessDate);
+        const ordersWithIndicators = await Promise.all(grouped.map(async (order) => {
+            const otherOrdersCount = await prisma.order.count({
+                where: {
+                    businessDate,
+                    customerPhone: order.customerPhone,
+                    customerName: {
+                        equals: order.customerName,
+                        mode: 'insensitive',
+                    },
+                    id: { notIn: order.mergedOrderIds },
+                },
+            });
+            return {
+                ...order,
+                hasOtherOrdersToday: otherOrdersCount > 0 || (order.mergedOrderIds && order.mergedOrderIds.length > 1),
+            };
+        }));
         res.json({
             success: true,
-            orders,
+            orders: ordersWithIndicators,
         });
     }
     catch (error) {
@@ -342,31 +591,73 @@ async function markCodDeliveredOwner(req, res, next) {
     try {
         const { id } = req.params;
         const result = await prisma.$transaction(async (tx) => {
-            const order = await tx.order.findUnique({
+            const targetOrder = await tx.order.findUnique({
                 where: { id },
+                include: { payment: true },
             });
-            if (!order) {
+            if (!targetOrder) {
                 throw new error_1.AppError('Order not found', 404);
             }
-            if (order.paymentMethod !== 'COD') {
+            if (targetOrder.paymentMethod !== 'COD') {
                 throw new error_1.AppError('Order is not a Cash on Delivery order', 400);
             }
-            if (order.orderStatus === 'DELIVERED') {
-                throw new error_1.AppError('Order is already marked delivered', 400);
-            }
-            if (order.orderStatus === 'CANCELLED') {
-                throw new error_1.AppError('Cannot deliver a cancelled order', 400);
-            }
-            const updated = await tx.order.update({
-                where: { id },
-                data: {
-                    orderStatus: 'DELIVERED',
-                    paymentStatus: 'PAID',
-                    deliveredAt: new Date(),
+            // Find all active COD orders in the group
+            const groupOrders = await tx.order.findMany({
+                where: {
+                    businessDate: targetOrder.businessDate,
+                    customerName: targetOrder.customerName,
+                    customerPhone: targetOrder.customerPhone,
+                    paymentMethod: 'COD',
+                    orderStatus: {
+                        in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY']
+                    }
                 },
+                include: { payment: true },
             });
-            return updated;
+            const ordersToUpdate = groupOrders.some(o => o.id === targetOrder.id) ? groupOrders : [targetOrder];
+            let lastUpdatedOrder = null;
+            for (const order of ordersToUpdate) {
+                if (order.orderStatus === 'DELIVERED') {
+                    continue;
+                }
+                if (order.orderStatus === 'CANCELLED') {
+                    continue;
+                }
+                // Set payment record to PAID
+                if (order.payment) {
+                    await tx.payment.update({
+                        where: { id: order.payment.id },
+                        data: {
+                            amount: order.totalAmount, // Mark the full amount of this order paid
+                            status: 'PAID',
+                        },
+                    });
+                }
+                else {
+                    // Create payment record if it doesn't exist
+                    await tx.payment.create({
+                        data: {
+                            orderId: order.id,
+                            gateway: 'COD',
+                            gatewayOrderId: 'cod-' + order.id,
+                            amount: order.totalAmount,
+                            status: 'PAID',
+                        }
+                    });
+                }
+                lastUpdatedOrder = await tx.order.update({
+                    where: { id: order.id },
+                    data: {
+                        orderStatus: 'DELIVERED',
+                        paymentStatus: 'PAID',
+                        deliveredAt: new Date(),
+                    },
+                });
+            }
+            return lastUpdatedOrder || targetOrder;
         });
+        // Broadcast so all connected clients (student order details, owner tracker) update immediately
+        sseManager_1.sseManager.broadcast('order_updated', { orderId: id, orderStatus: 'DELIVERED' });
         res.json({
             success: true,
             message: 'COD order marked as delivered.',
@@ -386,45 +677,63 @@ async function updateOrderStatusOwner(req, res, next) {
             throw new error_1.AppError('Invalid order status value', 400);
         }
         const updated = await prisma.$transaction(async (tx) => {
-            const order = await tx.order.findUnique({
+            const targetOrder = await tx.order.findUnique({
                 where: { id },
                 include: { items: true },
             });
-            if (!order) {
+            if (!targetOrder) {
                 throw new error_1.AppError('Order not found', 404);
             }
-            if (order.orderStatus === status) {
-                return order;
-            }
-            // Enforce status machine flows
-            if (order.orderStatus === 'DELIVERED' || order.orderStatus === 'CANCELLED') {
-                throw new error_1.AppError(`Cannot change status of a completed/cancelled order (${order.orderStatus})`, 400);
-            }
-            // If transitioning to CANCELLED, restore stock quantities
-            if (status === 'CANCELLED') {
-                for (const item of order.items) {
-                    if (item.menuItemId) {
-                        await tx.menuItem.update({
-                            where: { id: item.menuItemId },
-                            data: {
-                                availableQuantity: {
-                                    increment: item.quantity,
+            // Find all active orders in the group
+            const groupOrders = await tx.order.findMany({
+                where: {
+                    businessDate: targetOrder.businessDate,
+                    customerName: targetOrder.customerName,
+                    customerPhone: targetOrder.customerPhone,
+                    orderStatus: {
+                        in: ['PENDING_PAYMENT', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY']
+                    }
+                },
+                include: { items: true },
+            });
+            const ordersToUpdate = groupOrders.some(o => o.id === targetOrder.id) ? groupOrders : [targetOrder];
+            let lastUpdatedOrder = null;
+            for (const order of ordersToUpdate) {
+                if (order.orderStatus === status) {
+                    lastUpdatedOrder = order;
+                    continue;
+                }
+                if (order.orderStatus === 'DELIVERED' || order.orderStatus === 'CANCELLED') {
+                    continue;
+                }
+                // If transitioning to CANCELLED, restore stock quantities
+                if (status === 'CANCELLED') {
+                    for (const item of order.items) {
+                        if (item.menuItemId) {
+                            await tx.menuItem.update({
+                                where: { id: item.menuItemId },
+                                data: {
+                                    availableQuantity: {
+                                        increment: item.quantity,
+                                    },
                                 },
-                            },
-                        });
+                            });
+                        }
                     }
                 }
+                lastUpdatedOrder = await tx.order.update({
+                    where: { id: order.id },
+                    data: {
+                        orderStatus: status,
+                        ...(status === 'DELIVERED' ? { deliveredAt: new Date(), paymentStatus: 'PAID' } : {}),
+                        ...(status === 'CANCELLED' ? { cancelledAt: new Date() } : {}),
+                    },
+                });
             }
-            const updatedOrder = await tx.order.update({
-                where: { id },
-                data: {
-                    orderStatus: status,
-                    ...(status === 'DELIVERED' ? { deliveredAt: new Date(), paymentStatus: 'PAID' } : {}),
-                    ...(status === 'CANCELLED' ? { cancelledAt: new Date() } : {}),
-                },
-            });
-            return updatedOrder;
+            return lastUpdatedOrder || targetOrder;
         });
+        // Broadcast so all connected clients update immediately
+        sseManager_1.sseManager.broadcast('order_updated', { orderId: id, orderStatus: status });
         res.json({
             success: true,
             message: `Order status updated to ${status}`,
@@ -471,28 +780,109 @@ async function getTodayPreparationSummary(req, res, next) {
 async function getTodaySalesSummary(req, res, next) {
     try {
         const businessDate = (0, timezone_1.getKolkataBusinessDate)();
-        // Fetch all orders for today
+        // Fetch all orders for today with payments
         const orders = await prisma.order.findMany({
             where: { businessDate },
+            include: { payment: true },
         });
         const confirmedCount = orders.filter(o => !['CANCELLED', 'PAYMENT_FAILED', 'PENDING_PAYMENT'].includes(o.orderStatus)).length;
         const cancelledCount = orders.filter(o => o.orderStatus === 'CANCELLED').length;
         // Paid sales (Paid online or COD marked delivered)
         const paidOrders = orders.filter(o => o.paymentStatus === 'PAID' && o.orderStatus !== 'CANCELLED');
         const totalSales = paidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
-        const codSales = paidOrders.filter(o => o.paymentMethod === 'COD').reduce((sum, o) => sum + o.totalAmount, 0);
-        const onlineSales = paidOrders.filter(o => o.paymentMethod === 'ONLINE').reduce((sum, o) => sum + o.totalAmount, 0);
+        let codSales = 0;
+        let onlineSales = 0;
+        for (const o of paidOrders) {
+            if (o.paymentMethod === 'ONLINE') {
+                onlineSales += o.totalAmount;
+            }
+            else if (o.paymentMethod === 'COD') {
+                codSales += o.totalAmount;
+            }
+        }
+        const grossAmount = orders.filter(o => o.orderStatus !== 'CANCELLED').reduce((sum, o) => sum + o.totalAmount, 0);
+        const failedOrders = orders.filter(o => o.orderStatus === 'PAYMENT_FAILED' || o.paymentStatus === 'FAILED');
+        const totalLoss = failedOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+        const pendingCodOrders = orders.filter(o => o.paymentMethod === 'COD' &&
+            ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'].includes(o.orderStatus) &&
+            o.paymentStatus !== 'PAID');
+        const outstandingCod = pendingCodOrders.reduce((sum, o) => sum + o.totalAmount, 0);
         res.json({
             success: true,
             businessDate,
             summary: {
-                totalOrders: orders.length,
+                totalOrders: orders.length - cancelledCount,
                 confirmedOrders: confirmedCount,
                 cancelledOrders: cancelledCount,
                 totalSales,
                 codSales,
                 onlineSales,
+                grossAmount,
+                totalLoss,
+                outstandingCod,
             },
+        });
+    }
+    catch (error) {
+        next(error);
+    }
+}
+async function cancelAllOrdersOwner(req, res, next) {
+    try {
+        const { reason } = req.body;
+        const businessDate = (0, timezone_1.getKolkataBusinessDate)();
+        const activeOrders = await prisma.order.findMany({
+            where: {
+                businessDate,
+                orderStatus: {
+                    notIn: ['DELIVERED', 'CANCELLED', 'PAYMENT_FAILED'],
+                },
+            },
+            include: {
+                items: true,
+            },
+        });
+        if (activeOrders.length === 0) {
+            res.json({
+                success: true,
+                message: 'No active orders found to cancel today.',
+                count: 0,
+            });
+            return;
+        }
+        const cancelledCount = await prisma.$transaction(async (tx) => {
+            for (const order of activeOrders) {
+                // Restore stock quantities
+                for (const item of order.items) {
+                    if (item.menuItemId) {
+                        await tx.menuItem.update({
+                            where: { id: item.menuItemId },
+                            data: {
+                                availableQuantity: {
+                                    increment: item.quantity,
+                                },
+                            },
+                        });
+                    }
+                }
+                // Update the order status to CANCELLED
+                await tx.order.update({
+                    where: { id: order.id },
+                    data: {
+                        orderStatus: 'CANCELLED',
+                        cancelledAt: new Date(),
+                        cancellationReason: reason || 'Force cancelled by owner',
+                    },
+                });
+            }
+            return activeOrders.length;
+        });
+        // Broadcast so all connected student/owner tabs refresh immediately
+        sseManager_1.sseManager.broadcast('orders_cancelled_all', { count: cancelledCount, businessDate });
+        res.json({
+            success: true,
+            message: `Successfully force-cancelled ${cancelledCount} orders.`,
+            count: cancelledCount,
         });
     }
     catch (error) {

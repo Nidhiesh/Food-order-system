@@ -11,9 +11,11 @@ router.get('/:publicOrderId', orders_1.getOrderDetails);
 router.post('/:publicOrderId/cancel', orders_1.cancelOrder);
 // Protected owner routes
 router.get('/owner/today', auth_1.protectOwner, orders_1.getTodayOrdersOwner);
+router.get('/owner/search', auth_1.protectOwner, orders_1.searchOrdersOwner);
 router.get('/owner/cod-pending', auth_1.protectOwner, orders_1.getCodPendingOrdersOwner);
 router.patch('/owner/:id/deliver-cod', auth_1.protectOwner, orders_1.markCodDeliveredOwner);
 router.patch('/owner/:id/status', auth_1.protectOwner, orders_1.updateOrderStatusOwner);
+router.post('/owner/cancel-all', auth_1.protectOwner, orders_1.cancelAllOrdersOwner);
 router.get('/owner/summary', auth_1.protectOwner, orders_1.getTodayPreparationSummary);
 router.get('/owner/sales/today', auth_1.protectOwner, orders_1.getTodaySalesSummary);
 exports.default = router;
