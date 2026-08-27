@@ -11,7 +11,9 @@ import {
   updateOrderStatusOwner,
   getTodayPreparationSummary,
   getTodaySalesSummary,
-  cancelAllOrdersOwner
+  cancelAllOrdersOwner,
+  getOnlineOrdersOwner,
+  deliverAllOnlineOrdersOwner,
 } from '../controllers/orders';
 import { protectOwner } from '../middleware/auth';
 
@@ -27,6 +29,8 @@ router.post('/:publicOrderId/cancel', cancelOrder);
 router.get('/owner/today', protectOwner, getTodayOrdersOwner);
 router.get('/owner/search', protectOwner, searchOrdersOwner);
 router.get('/owner/cod-pending', protectOwner, getCodPendingOrdersOwner);
+router.get('/owner/online', protectOwner, getOnlineOrdersOwner);
+router.post('/owner/deliver-all-online', protectOwner, deliverAllOnlineOrdersOwner);
 router.patch('/owner/:id/deliver-cod', protectOwner, markCodDeliveredOwner);
 router.patch('/owner/:id/status', protectOwner, updateOrderStatusOwner);
 router.post('/owner/cancel-all', protectOwner, cancelAllOrdersOwner);

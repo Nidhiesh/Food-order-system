@@ -144,6 +144,16 @@ export const ownerApi = {
     return res.data;
   },
 
+  getOnlineOrders: async () => {
+    const res = await api.get('/orders/owner/online');
+    return res.data;
+  },
+
+  deliverAllOnlineOrders: async () => {
+    const res = await api.post('/orders/owner/deliver-all-online');
+    return res.data;
+  },
+
   markCodDelivered: async (id: string) => {
     const res = await api.patch(`/orders/owner/${id}/deliver-cod`);
     return res.data;

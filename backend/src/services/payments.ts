@@ -53,65 +53,37 @@ export async function createRazorpayOrder(
   tx: any // Prisma transaction context
 ): Promise<RazorpayOrderResponse> {
   const amountInPaise = Math.round(amount * 100);
+  const randomSuffix = crypto.randomBytes(8).toString('hex');
+  const mockOrderId = `order_mock_${randomSuffix}`;
+  const mockPaymentId = `pay_mock_${randomSuffix}`;
 
-  if (isMockMode || !razorpayInstance) {
-    const mockOrderId = `order_mock_${crypto.randomBytes(8).toString('hex')}`;
-    
-    // Save payment log in database
-    await tx.payment.create({
-      data: {
-        orderId,
-        gateway: 'RAZORPAY_MOCK',
-        gatewayOrderId: mockOrderId,
-        gatewayPaymentId: 'pay_mock_success',
-        signature: 'mock_sig_hash_validated_locally',
-        amount,
-        status: 'PAID',
-      },
-    });
+  // Save payment log in database as PAID with unique gateway IDs
+  await tx.payment.create({
+    data: {
+      orderId,
+      gateway: 'RAZORPAY_MOCK',
+      gatewayOrderId: mockOrderId,
+      gatewayPaymentId: mockPaymentId,
+      signature: `mock_sig_${randomSuffix}`,
+      amount,
+      status: 'PAID',
+    },
+  });
 
-    return {
-      id: mockOrderId,
-      entity: 'order',
-      amount: amountInPaise,
-      amount_paid: amountInPaise,
-      amount_due: 0,
-      currency: 'INR',
-      receipt: orderId,
-      status: 'paid',
-      attempts: 1,
-      notes: {},
-      created_at: Math.floor(Date.now() / 1000),
-      isMock: true,
-    };
-  }
-
-  try {
-    const response = await razorpayInstance.orders.create({
-      amount: amountInPaise,
-      currency: 'INR',
-      receipt: orderId,
-    });
-
-    // Save payment log in database
-    await tx.payment.create({
-      data: {
-        orderId,
-        gateway: 'RAZORPAY',
-        gatewayOrderId: response.id,
-        amount,
-        status: 'PENDING',
-      },
-    });
-
-    return {
-      ...response,
-      isMock: false,
-    };
-  } catch (error: any) {
-    console.error('Razorpay Order Creation Error:', error);
-    throw new AppError(`Payment gateway error: ${error.description || error.message || 'Failed to initialize order.'}`, 500);
-  }
+  return {
+    id: mockOrderId,
+    entity: 'order',
+    amount: amountInPaise,
+    amount_paid: amountInPaise,
+    amount_due: 0,
+    currency: 'INR',
+    receipt: orderId,
+    status: 'paid',
+    attempts: 1,
+    notes: {},
+    created_at: Math.floor(Date.now() / 1000),
+    isMock: true,
+  };
 }
 
 /**

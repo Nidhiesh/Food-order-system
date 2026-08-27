@@ -5,6 +5,7 @@ import {
   LayoutDashboard, 
   ClipboardList, 
   IndianRupee, 
+  CreditCard,
   Settings, 
   LogOut, 
   Menu as MenuIcon, 
@@ -103,8 +104,9 @@ export const OwnerLayout: React.FC = () => {
   const navItems = [
     { label: 'Dashboard', path: '/owner/dashboard', icon: LayoutDashboard },
     { label: 'Orders Tracker', path: '/owner/orders', icon: ClipboardList },
-    { label: 'Student History', path: '/owner/student-history', icon: History },
+    { label: 'Online Orders', path: '/owner/orders/online', icon: CreditCard },
     { label: 'COD Pending', path: '/owner/orders/cod-pending', icon: IndianRupee },
+    { label: 'Student History', path: '/owner/student-history', icon: History },
     { label: 'Menu Catalog', path: '/owner/menu', icon: ChefHat },
     { label: 'Sales & Stats', path: '/owner/sales', icon: IndianRupee },
     { label: 'Shop Rules', path: '/owner/shop', icon: Settings },

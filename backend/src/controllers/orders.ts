@@ -68,12 +68,7 @@ export async function createOrder(req: Request, res: Response, next: NextFunctio
 
       // Determine initial statuses
       let orderStatus = 'CONFIRMED';
-      let paymentStatus = 'PENDING';
-
-      if (parsed.paymentMethod === 'ONLINE') {
-        orderStatus = 'PENDING_PAYMENT';
-        paymentStatus = 'PENDING';
-      }
+      let paymentStatus = parsed.paymentMethod === 'ONLINE' ? 'PAID' : 'PENDING';
 
       // Create main Order
       const newOrder = await tx.order.create({
@@ -288,7 +283,7 @@ function groupActiveOrders(orders: any[], businessDate: string) {
     const isPrepActive = ['PENDING_PAYMENT', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'].includes(order.orderStatus);
     
     if (isPrepActive) {
-      const key = `${order.customerName.trim().toLowerCase()}_${order.customerPhone.trim()}`;
+      const key = `${order.customerName.trim().toLowerCase()}_${order.customerPhone.trim()}_${order.paymentMethod}`;
       if (!activeGroups[key]) {
         activeGroups[key] = [];
       }
@@ -359,19 +354,20 @@ function groupActiveOrders(orders: any[], businessDate: string) {
       orderStatus = 'PENDING_PAYMENT';
     }
 
-    const hasCod = group.some(o => o.paymentMethod === 'COD');
-    const paymentMethod = (hasCod || totalAmount > totalOnlinePaidAmount) ? 'COD' : 'ONLINE';
-    const paymentStatus = totalOnlinePaidAmount >= totalAmount ? 'PAID' : 'PENDING';
+    const paymentMethod = primary.paymentMethod;
+    const paymentStatus = paymentMethod === 'ONLINE'
+      ? (group.every(o => o.paymentStatus === 'PAID') || totalOnlinePaidAmount >= totalAmount ? 'PAID' : 'PENDING')
+      : (group.every(o => o.paymentStatus === 'PAID') ? 'PAID' : 'PENDING');
 
     let payment = null;
-    if (totalOnlinePaidAmount > 0) {
+    if (totalOnlinePaidAmount > 0 || paymentMethod === 'ONLINE') {
       payment = {
         id: 'virtual-payment-' + primary.id,
         orderId: primary.id,
-        gateway: 'RAZORPAY',
+        gateway: 'RAZORPAY_MOCK',
         gatewayOrderId: 'virtual-gateway-' + primary.id,
-        amount: totalOnlinePaidAmount,
-        status: 'PAID',
+        amount: totalAmount,
+        status: paymentStatus,
         createdAt: primary.createdAt,
         updatedAt: primary.updatedAt,
       };
@@ -627,6 +623,101 @@ export async function getCodPendingOrdersOwner(req: Request, res: Response, next
   }
 }
 
+export async function getOnlineOrdersOwner(req: Request, res: Response, next: NextFunction) {
+  try {
+    const businessDate = getKolkataBusinessDate();
+    const orders = await prisma.order.findMany({
+      where: {
+        businessDate,
+        paymentMethod: 'ONLINE',
+        orderStatus: {
+          in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'],
+        },
+      },
+      include: { items: true, payment: true },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const grouped = groupActiveOrders(orders, businessDate);
+
+    const ordersWithIndicators = await Promise.all(
+      grouped.map(async (order) => {
+        const otherOrdersCount = await prisma.order.count({
+          where: {
+            businessDate,
+            customerPhone: order.customerPhone,
+            customerName: {
+              equals: order.customerName,
+              mode: 'insensitive',
+            },
+            id: { notIn: order.mergedOrderIds },
+          },
+        });
+        return {
+          ...order,
+          hasOtherOrdersToday: otherOrdersCount > 0 || (order.mergedOrderIds && order.mergedOrderIds.length > 1),
+        };
+      })
+    );
+
+    res.json({
+      success: true,
+      orders: ordersWithIndicators,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deliverAllOnlineOrdersOwner(req: Request, res: Response, next: NextFunction) {
+  try {
+    const businessDate = getKolkataBusinessDate();
+    const activeOnlineOrders = await prisma.order.findMany({
+      where: {
+        businessDate,
+        paymentMethod: 'ONLINE',
+        orderStatus: {
+          in: ['CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY'],
+        },
+      },
+      select: { id: true },
+    });
+
+    if (activeOnlineOrders.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No pending online orders to deliver.',
+        count: 0,
+      });
+    }
+
+    const orderIds = activeOnlineOrders.map((o) => o.id);
+
+    await prisma.order.updateMany({
+      where: {
+        id: { in: orderIds },
+      },
+      data: {
+        orderStatus: 'DELIVERED',
+        paymentStatus: 'PAID',
+        deliveredAt: new Date(),
+      },
+    });
+
+    // Broadcast to SSE clients
+    sseManager.broadcast('orders_delivered_all', { count: orderIds.length });
+    sseManager.broadcast('order_updated', { orderStatus: 'DELIVERED' });
+
+    res.json({
+      success: true,
+      message: `Successfully marked ${orderIds.length} online order(s) as delivered.`,
+      count: orderIds.length,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function markCodDeliveredOwner(req: Request, res: Response, next: NextFunction) {
   try {
     const { id } = req.params;
@@ -745,6 +836,7 @@ export async function updateOrderStatusOwner(req: Request, res: Response, next: 
           businessDate: targetOrder.businessDate,
           customerName: targetOrder.customerName,
           customerPhone: targetOrder.customerPhone,
+          paymentMethod: targetOrder.paymentMethod,
           orderStatus: {
             in: ['PENDING_PAYMENT', 'CONFIRMED', 'PREPARING', 'READY', 'OUT_FOR_DELIVERY']
           }

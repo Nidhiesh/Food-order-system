@@ -23,6 +23,7 @@ import { MenuManagement } from './pages/owner/MenuManagement';
 import { OrdersTracker } from './pages/owner/OrdersTracker';
 import { StudentHistory } from './pages/owner/StudentHistory';
 import { CodPending } from './pages/owner/CodPending';
+import { OnlineOrders } from './pages/owner/OnlineOrders';
 import { SalesSummary } from './pages/owner/SalesSummary';
 import { ShopControl } from './pages/owner/ShopControl';
 
@@ -52,6 +53,7 @@ function App() {
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="menu" element={<MenuManagement />} />
               <Route path="orders" element={<OrdersTracker />} />
+              <Route path="orders/online" element={<OnlineOrders />} />
               <Route path="student-history" element={<StudentHistory />} />
               <Route path="orders/cod-pending" element={<CodPending />} />
               <Route path="sales" element={<SalesSummary />} />
