@@ -482,10 +482,16 @@ export const OrderHistory: React.FC = () => {
                         <span className="text-rose-500 font-extrabold uppercase text-[9px] tracking-wider bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200/50">
                           {order.paymentMethod === 'ONLINE' && order.paymentStatus === 'PAID' ? 'Refunded' : 'Cancelled'}
                         </span>
-                      ) : order.paymentMethod === 'COD' && order.paymentStatus === 'PENDING' ? (
-                        <span className="text-amber-600 font-extrabold uppercase text-[9px] tracking-wider bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/50">
-                          Cash on Delivery
-                        </span>
+                      ) : order.paymentMethod === 'COD' ? (
+                        order.paymentStatus === 'PAID' || order.orderStatus === 'DELIVERED' ? (
+                          <span className="text-emerald-600 font-extrabold uppercase text-[9px] tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/50">
+                            Cash Paid
+                          </span>
+                        ) : (
+                          <span className="text-amber-600 font-extrabold uppercase text-[9px] tracking-wider bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/50">
+                            Cash on Delivery
+                          </span>
+                        )
                       ) : (
                         <span className="text-emerald-600 font-extrabold uppercase text-[9px] tracking-wider bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/50">
                           Paid Online

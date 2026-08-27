@@ -177,7 +177,7 @@ export const OrderDetails: React.FC = () => {
     : (isOnline && order.orderStatus === 'PENDING_PAYMENT' ? 'CONFIRMED' : order.orderStatus);
 
   // Stepper statuses
-  const steps = ['CONFIRMED', 'DELIVERED'];
+  const steps = ['CONFIRMED', 'READY', 'DELIVERED'];
   const getStepIndex = (status: string) => {
     if (status === 'CANCELLED' || status === 'PAYMENT_FAILED') return -2;
     if (status === 'PENDING_PAYMENT' && !isOnline) return -1;
@@ -270,12 +270,13 @@ export const OrderDetails: React.FC = () => {
             )}
             <div className="relative flex items-center justify-between w-full mt-4 mb-2">
               {/* Background line */}
-              <div className="absolute left-6 right-6 top-1/2 -translate-y-1/2 h-0.5 bg-slate-100 z-0"></div>
-              {/* Active progress line */}
-              <div 
-                className="absolute left-6 top-1/2 -translate-y-1/2 h-0.5 bg-brand-600 z-0 transition-all duration-500"
-                style={{ width: `${currentStepIndex >= 0 ? (currentStepIndex / (steps.length - 1)) * 90 : 0}%` }}
-              ></div>
+              <div className="absolute left-4 right-4 top-1/2 -translate-y-1/2 h-0.5 bg-slate-100 z-0">
+                {/* Active progress line */}
+                <div 
+                  className="h-full bg-brand-600 transition-all duration-500"
+                  style={{ width: `${currentStepIndex >= 0 ? (currentStepIndex / (steps.length - 1)) * 100 : 0}%` }}
+                />
+              </div>
 
               {steps.map((step, idx) => {
                 const isActive = idx <= currentStepIndex;
@@ -287,7 +288,7 @@ export const OrderDetails: React.FC = () => {
                         ? 'bg-brand-600 border-brand-600 text-white font-bold' 
                         : 'bg-white border-slate-200 text-slate-400'
                     } ${isCurrent ? 'ring-4 ring-brand-100 scale-110' : ''}`}>
-                      {idx === 3 && isActive ? (
+                      {idx === steps.length - 1 && isActive ? (
                         <CheckCircle size={14} className="stroke-[3]" />
                       ) : (
                         <span className="text-xs">{idx + 1}</span>
@@ -296,7 +297,7 @@ export const OrderDetails: React.FC = () => {
                     <span className={`text-[10px] font-bold uppercase tracking-wider mt-2 ${
                       isActive ? 'text-slate-800' : 'text-slate-400'
                     }`}>
-                      {step === 'CONFIRMED' ? 'Placed' : step.toLowerCase()}
+                      {step === 'CONFIRMED' ? 'Placed' : step === 'READY' ? 'Ready' : 'Delivered'}
                     </span>
                   </div>
                 );
